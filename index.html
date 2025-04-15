@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>PhoenixFall</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #240000; /* Darker phoenix red background */
+            touch-action: none;
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            font-family: Arial, sans-serif;
+        }
+        
+        #renderDiv {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+            touch-action: none;
+            opacity: 0; /* Start invisible */
+            transition: opacity 1s ease; /* Smooth fade in */
+        }
+        
+        .loading-indicator {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: #FF5500;
+            z-index: 1;
+        }
+        
+        .loading-indicator h2 {
+            margin: 0;
+            padding: 0;
+            font-size: 2rem;
+            animation: pulse 1.5s infinite alternate;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+        
+        canvas {
+            display: block;
+            touch-action: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- Show a simple loading indicator before the game loads -->
+    <div class="loading-indicator" id="initial-loader">
+        <h2>Loading...</h2>
+    </div>
+    
+    <!-- Game container will be added by JavaScript -->
+    <div id="renderDiv"></div>
+
+    <script>
+        // Load game scripts (main script should be the last one)
+        document.addEventListener('DOMContentLoaded', function() {
+            // You can add any initialization code here
+            
+            // Show the render div after a short delay
+            setTimeout(function() {
+                const renderDiv = document.getElementById('renderDiv');
+                if (renderDiv) {
+                    renderDiv.style.opacity = '1';
+                }
+                
+                // Hide the initial loader
+                const initialLoader = document.getElementById('initial-loader');
+                if (initialLoader) {
+                    initialLoader.style.display = 'none';
+                }
+            }, 500);
+            
+            // Check if running on mobile device
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            console.log('Device type:', isMobile ? 'mobile' : 'desktop');
+            
+            // Add event listener to prevent pinch zoom on mobile
+            document.addEventListener('touchmove', function(e) {
+                if (e.touches.length > 1) {
+                    e.preventDefault();
+                }
+            }, { passive: false });
+        });
+    </script>
+    
+    <!-- Import the main JavaScript module -->
+    <script type="module" src="app.js"></script>
+</body>
+</html> 
