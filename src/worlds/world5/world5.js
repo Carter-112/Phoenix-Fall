@@ -17,27 +17,9 @@ export const world5 = {
     
     // Enemy spawn configuration
     enemies: {
-        flameHelicopter: {
-            spawnRate: 1200, // Fastest spawn rate of all worlds
-            maxActive: 6, 
-            speed: 3.2,
-            health: 180
-        },
-        magmaBat: {
-            spawnRate: 1800,
-            maxActive: 5,
-            speed: 3.8,
-            health: 130
-        },
-        lavaGolem: {
-            spawnRate: 3000,
-            maxActive: 2,
-            speed: 2.0,
-            health: 400
-        },
-        infernalBeast: { // New enemy type
-            spawnRate: 5000,
-            maxActive: 1,
+        infernalBeast: { // Only enemy unique to World 5
+            spawnRate: 3000, // Faster spawn rate since it's the only enemy
+            maxActive: 3, // More active to compensate for being the only enemy
             speed: 2.5,
             health: 800
         }

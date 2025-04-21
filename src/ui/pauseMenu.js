@@ -99,6 +99,11 @@ export class PauseMenu {
         this.resumeGame();
       });
       
+      // Reset run button
+      const resetButton = this.createButton('RESET RUN', '#FF7733', () => {
+        this.resetRun();
+      });
+      
       // Exit to menu button
       const exitButton = this.createButton('EXIT TO MENU', '#FF9955', () => {
         this.exitToMenu();
@@ -106,6 +111,7 @@ export class PauseMenu {
       
       // Assemble the menu
       buttonsContainer.appendChild(resumeButton);
+      buttonsContainer.appendChild(resetButton);
       buttonsContainer.appendChild(exitButton);
       menuPanel.appendChild(title);
       menuPanel.appendChild(buttonsContainer);
@@ -205,6 +211,10 @@ export class PauseMenu {
         // Store the current game running state to restore it later
         this.wasRunning = this.game.isRunning;
         
+        // Pause the game logic by setting isRunning to false
+        // This ensures the game is fully paused
+        this.game.isRunning = false;
+        
         // Create menu if it doesn't exist
         if (!this.menuElement) {
           this.createPauseMenu();
@@ -227,10 +237,12 @@ export class PauseMenu {
           this.game.pauseButton.hide();
         }
         
-        // Optionally pause game sounds
+        // Pause game sounds
         if (this.game.soundManager) {
           this.game.soundManager.stopGameplayLoop();
         }
+        
+        console.log('Game paused');
       }
     }
     
@@ -257,16 +269,61 @@ export class PauseMenu {
             this.game.pauseButton.show();
           }
           
+          // Set isPaused to false before restoring game state
           this.isPaused = false;
           
-          // Restore the previous running state if the game wasn't already over
+          // Reset the game's lastTimestamp to force the game loop to reset delta time
+          // This prevents the game from doing a big jump after being paused
+          this.game.lastTimestamp = 0;
+          
+          // IMPORTANT: Always force the game to run when resuming, 
+          // regardless of previous state (unless game is over)
           if (!this.game.gameState.gameOver && !this.game.gameState.worldComplete) {
-            this.game.isRunning = this.wasRunning;
+            this.game.isRunning = true;
           }
           
           // Resume game sounds
           if (this.game.soundManager) {
-            // Fix: Call the correct method in SoundManager
+            this.game.soundManager.playGameplayLoop();
+          }
+          
+          console.log('Game resumed, isRunning set to:', this.game.isRunning);
+        }, 300);
+      }
+    }
+    
+    /**
+     * Resets the current run and resumes the game
+     */
+    resetRun() {
+      if (this.isPaused && this.menuElement) {
+        // First hide the pause menu
+        this.menuElement.style.opacity = '0';
+        
+        // Get panel element
+        const panel = this.menuElement.querySelector('.pause-menu-panel');
+        if (panel) {
+          panel.style.transform = 'scale(0.9)';
+        }
+        
+        // Delay to allow animation to complete
+        setTimeout(() => {
+          this.menuElement.style.display = 'none';
+          
+          // Show pause button again
+          if (this.game.pauseButton) {
+            this.game.pauseButton.show();
+          }
+          
+          this.isPaused = false;
+          
+          // Reset the game
+          if (this.game && typeof this.game.restart === 'function') {
+            this.game.restart();
+          }
+          
+          // Resume game sounds
+          if (this.game.soundManager) {
             this.game.soundManager.playGameplayLoop();
           }
         }, 300);
@@ -279,6 +336,19 @@ export class PauseMenu {
     exitToMenu() {
       // Simply reload the page to return to initial state
       window.location.reload();
+    }
+    
+    /**
+     * Draw method required by game render loop
+     * This is intentionally empty since the menu is created with DOM elements,
+     * but the game still calls it in the render loop
+     * @param {CanvasRenderingContext2D} ctx - Canvas context
+     * @param {number} width - Canvas width
+     * @param {number} height - Canvas height
+     */
+    draw(ctx, width, height) {
+      // The menu is rendered with DOM elements, so no canvas drawing is needed
+      // This method exists to prevent errors in the game's render loop
     }
     
     /**

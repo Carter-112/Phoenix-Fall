@@ -392,28 +392,107 @@ export class Game {
   spawnHazard() {
     // Get current world configuration
     const currentWorld = this.worldManager?.getCurrentWorld();
-    const enemies = currentWorld?.enemies || {};
+    const worldNum = this.worldManager?.getCurrentWorldNumber() || 1;
     
-    // Spawn hazards based on world configuration
-    const x = Math.random() * this.width;
-    const y = -80;
+    // Determine spawn position
+    let x, y;
     
-    // Default to FlameHelicopter if no configuration or for world 1-2
-    if (!currentWorld || this.worldManager.getCurrentWorldNumber() <= 2) {
-      this.hazards.push(new FlameHelicopter(x, y, this.particleSystem));
+    // 80% chance to spawn from top, 20% from sides
+    if (Math.random() < 0.8) {
+      x = Math.random() * this.width;
+      y = -50;
+    } else {
+      x = Math.random() < 0.5 ? -30 : this.width + 30;
+      y = Math.random() * (this.height / 2);
+    }
+    
+    // Use world coordinator to spawn hazards if available
+    if (this.worldManager && this.worldManager.getCurrentHazardCoordinator()) {
+      const coordinator = this.worldManager.getCurrentHazardCoordinator();
+      coordinator.spawnHazard(x, y);
       return;
     }
     
-    // For worlds 3-6, use the hazard coordinator
-    // The hazard coordinator will handle spawning world-specific hazards
-    if (this.worldManager.getCurrentHazardCoordinator()) {
-      // Let world hazard coordinator handle spawning instead
-      console.log("Using world hazard coordinator");
-      return;
+    // Fallback based on world number if coordinator not available
+    switch(worldNum) {
+      case 2:
+        // World 2: AshCloud and LavaRock
+        if (Math.random() < 0.5) {
+          if (typeof AshCloud !== 'undefined') {
+            this.hazards.push(new AshCloud(x, y, this.particleSystem));
+          }
+        } else {
+          if (typeof LavaRock !== 'undefined') {
+            this.hazards.push(new LavaRock(x, y, this.particleSystem));
+          }
+        }
+        break;
+      case 3:
+        // World 3: Frost hazards
+        if (Math.random() < 0.5) {
+          if (typeof IceShard !== 'undefined') {
+            this.hazards.push(new IceShard(x, y, this.particleSystem));
+          }
+        } else {
+          if (typeof FrostCloud !== 'undefined') {
+            this.hazards.push(new FrostCloud(x, y, this.particleSystem));
+          }
+        }
+        break;
+      case 4:
+        // World 4: Void/Celestial hazards
+        if (Math.random() < 0.5) {
+          if (typeof VoidTornado !== 'undefined') {
+            this.hazards.push(new VoidTornado(x, y, this.particleSystem));
+          }
+        } else {
+          if (typeof AstralDebris !== 'undefined') {
+            this.hazards.push(new AstralDebris(x, y, this.particleSystem));
+          }
+        }
+        break;
+      case 5:
+        // World 5: Infernal hazards
+        if (Math.random() < 0.5) {
+          if (typeof HellPortal !== 'undefined') {
+            this.hazards.push(new HellPortal(x, y, this.particleSystem));
+          }
+        } else {
+          if (typeof DemonHand !== 'undefined') {
+            this.hazards.push(new DemonHand(x, y, this.particleSystem));
+          }
+        }
+        break;
+      case 6:
+        // World 6: Solar hazards
+        const rand = Math.random();
+        if (rand < 0.33) {
+          if (typeof SolarFlare !== 'undefined') {
+            this.hazards.push(new SolarFlare(x, y, this.particleSystem));
+          }
+        } else if (rand < 0.66) {
+          if (typeof GravityWell !== 'undefined') {
+            this.hazards.push(new GravityWell(x, y, this.particleSystem));
+          }
+        } else {
+          if (typeof SunPulse !== 'undefined') {
+            this.hazards.push(new SunPulse(x, y, this.particleSystem));
+          }
+        }
+        break;
+      default:
+        // World 1: Default to FlameHelicopter and LavaBurst
+        if (Math.random() < 0.6) {
+          this.hazards.push(new FlameHelicopter(x, y, this.particleSystem));
+        } else {
+          if (typeof LavaBurst !== 'undefined') {
+            this.hazards.push(new LavaBurst(x, y, this.particleSystem));
+          } else {
+            // Fallback to FlameHelicopter if LavaBurst is not defined
+            this.hazards.push(new FlameHelicopter(x, y, this.particleSystem));
+          }
+        }
     }
-    
-    // Fallback to default hazard if coordinator isn't working
-    this.hazards.push(new FlameHelicopter(x, y, this.particleSystem));
   }
   
   spawnEnemy() {
@@ -434,23 +513,11 @@ export class Game {
       y = Math.random() * (this.height / 2);
     }
     
-    // Default to MagmaBat if no configuration or for world 1
-    if (!currentWorld || worldNum === 1) {
-      this.enemies.push(new MagmaBat(x, y, this.particleSystem));
-      return;
+    // Use world coordinator to spawn enemies if available
+    if (this.worldManager && this.worldManager.getCurrentEnemyCoordinator()) {
+      const coordinator = this.worldManager.getCurrentEnemyCoordinator();
+      coordinator.spawnEnemy(x, y, this);
     }
-    
-    // For worlds 2-6, randomly choose enemy type based on world
-    // Just use MagmaBat and FlameHelicopter for now since they're already implemented
-    if (Math.random() < 0.6) {
-      this.enemies.push(new MagmaBat(x, y, this.particleSystem));
-    } else {
-      // Spawn as hazard instead of enemy for now
-      this.hazards.push(new FlameHelicopter(x, y, this.particleSystem));
-    }
-    
-    // TODO: Implement additional enemy types for worlds 3-6
-    // For example: SolarSpirit, BlackSunling, FlameLeech, etc.
   }
   
   update(deltaTime) {
@@ -497,10 +564,9 @@ export class Game {
       this.lastHazardTime = Date.now();
     }
     
-    // Spawn enemies
-    if (Date.now() - this.lastEnemyTime > 3000) {
-      this.spawnEnemy();
-      this.lastEnemyTime = Date.now();
+    // Update world manager for enemy spawning
+    if (this.worldManager) {
+      this.worldManager.update(deltaTime);
     }
     
     // Update and check collisions with embers
@@ -1033,103 +1099,132 @@ export class Game {
    * Handles three states: menu display, active gameplay, and end screens
    */
   render() {
-    // Always clear the canvas at the start of rendering to prevent artifacts
-    this.ctx.clearRect(0, 0, this.width, this.height);
-    
-    // ===== BACKGROUND LAYER =====
-    // Always render the background regardless of game state for visual continuity
-    this.renderScrollingBackground();
-    
-    // Track if we're in a transition state (either starting or ending game)
-    const isTransitioning = this.gameState.gameOver || this.gameState.worldComplete;
-    
-    // ===== GAMEPLAY LAYER =====
-    // Render game elements during active gameplay or during transition animations
-    if (this.isRunning || isTransitioning) {
-      // Apply screen shake effect when active (impacts, explosions, etc.)
-      if (this.screenShake.active) {
-        this.ctx.save();
-        this.ctx.translate(this.screenShake.offsetX, this.screenShake.offsetY);
+    // Apply the current world's theme before rendering
+    const currentWorldConfig = this.getCurrentWorldConfig();
+    if (currentWorldConfig && currentWorldConfig.settings) {
+      // Set background color based on world settings
+      this.canvas.style.backgroundColor = currentWorldConfig.settings.backgroundColor;
+      document.body.style.backgroundColor = currentWorldConfig.settings.backgroundColor;
+      
+      // Ensure world-specific CSS class is applied
+      const worldNumber = this.worldManager.getCurrentWorldNumber();
+      document.body.setAttribute('data-world', worldNumber);
+      
+      // Remove any existing world classes
+      for (let i = 1; i <= 6; i++) {
+        document.body.classList.remove(`world-${i}`);
       }
-      
-      // Draw active game elements in appropriate depth order (back to front)
-      // 1. Background objects
-      this.embers.forEach(ember => ember.draw(this.ctx));
-      
-      // 2. Mid-layer hazards and enemies
-      this.hazards.forEach(hazard => hazard.draw(this.ctx));
-      this.enemies.forEach(enemy => enemy.draw(this.ctx));
-      
-      // 3. Phoenix character and particle effects (should appear on top)
-      this.particleSystem.draw(this.ctx);
-      
-      // Only draw phoenix if it exists and has health
-      if (this.phoenix) {
-        this.phoenix.draw(this.ctx);
-      }
-      
-      // Restore canvas state after screen shake
-      if (this.screenShake.active) {
-        this.ctx.restore();
-      }
+      // Add current world class
+      document.body.classList.add(`world-${worldNumber}`);
     }
     
-    // ===== WORLD-SPECIFIC UI LAYER =====
-    // Draw world-specific UI through the world manager's hazard coordinator
-    if (this.worldManager && this.isRunning) {
+    // Clear canvas with screen shake offset
+    this.ctx.clearRect(0, 0, this.width, this.height);
+    
+    // Apply screen shake if active
+    if (this.screenShake.active) {
+      this.ctx.save();
+      this.ctx.translate(this.screenShake.offsetX, this.screenShake.offsetY);
+    }
+    
+    // Draw scrolling background with ember particles
+    this.renderScrollingBackground();
+    
+    // Draw world-specific hazards and effects
+    if (this.worldManager) {
       this.worldManager.draw(this.ctx, this.width, this.height);
     }
     
-    // ===== UNIVERSAL UI LAYER =====
-    // Draw universal UI elements that work across all worlds
-    this.universalUI.draw(this.width, this.height);
+    // Draw embers
+    this.embers.forEach(ember => ember.draw(this.ctx));
     
-    // ===== UI OVERLAY =====
-    // Note: The original UI is now disabled with early returns
+    // Draw hazards
+    this.hazards.forEach(hazard => hazard.draw(this.ctx));
+    
+    // Draw enemies
+    this.enemies.forEach(enemy => enemy.draw(this.ctx));
+    
+    // Draw phoenix
+    this.phoenix.draw(this.ctx);
+    
+    // Reset transform if screen shake was applied
+    if (this.screenShake.active) {
+      this.ctx.restore();
+    }
+    
+    // Draw UI
     this.ui.draw(this.width, this.height);
     
-    // ===== NOTIFICATION LAYER =====
-    // Notifications appear above everything else
-    this.xpNotification.draw(this.ctx, this.width, this.height);
-  }
-  
-  renderScrollingBackground() {
-    // Simple static red-orange background
-    this.ctx.fillStyle = '#D93d00'; // Red-orange background
-    this.ctx.fillRect(0, 0, this.width, this.height);
-    
-    // Add a few ember particles for minimal texture
-    this.drawEmberParticles(0);
-  }
-  
-  drawEmberParticles(yOffset) {
-    // Draw just a few subtle ember particles for minimal texture
-    const time = Date.now() / 1000;
-    
-    // Greatly reduced number of particles
-    for (let i = 0; i < 15; i++) {
-      const seed = i * 1337;
-      const x = Math.sin(seed) * this.width * 0.5 + this.width * 0.5;
-      const y = Math.cos(seed * 1.5) * this.height * 0.5 + this.height * 0.5;
-      
-      // Simpler particle appearance
-      const size = 2 + Math.random() * 2;
-      
-      // Only draw embers that are on screen
-      if (y >= 0 && y <= this.height) {
-        // Simplified ember glow
-        this.ctx.fillStyle = 'rgba(255, 220, 100, 0.3)';
-        this.ctx.beginPath();
-        this.ctx.arc(x, y, size * 2, 0, Math.PI * 2);
-        this.ctx.fill();
-        
-        // Bright center
-        this.ctx.fillStyle = 'rgba(255, 255, 200, 0.5)';
-        this.ctx.beginPath();
-        this.ctx.arc(x, y, size * 0.5, 0, Math.PI * 2);
-        this.ctx.fill();
-      }
+    // Draw universal UI elements (always visible)
+    if (this.universalUI) {
+      this.universalUI.draw(this.width, this.height);
     }
+    
+    // Draw XP notifications
+    this.xpNotification.draw(this.ctx);
+    
+    // Draw pause menu if game is paused
+    if (this.pauseMenu && this.pauseMenu.isPaused) {
+      this.pauseMenu.draw(this.ctx, this.width, this.height);
+    }
+  }
+  
+  // Update the scrolling background to match the world theme
+  renderScrollingBackground() {
+    const currentWorldConfig = this.getCurrentWorldConfig();
+    let yOffset = this.gameState.altitude * 0.5 % this.height;
+    
+    // Draw world-specific background elements
+    const worldNumber = this.worldManager.getCurrentWorldNumber();
+    
+    // Draw ember particles in background with world-specific colors
+    this.drawEmberParticles(yOffset, worldNumber);
+  }
+  
+  // Update to add world-specific ember colors
+  drawEmberParticles(yOffset, worldNumber = 1) {
+    // Get world-specific color palette
+    let primaryColor, secondaryColor;
+    
+    switch(worldNumber) {
+      case 2:
+        primaryColor = '#009688';
+        secondaryColor = '#4db6ac';
+        break;
+      case 3:
+        primaryColor = '#03a9f4';
+        secondaryColor = '#4fc3f7';
+        break;
+      case 4:
+        primaryColor = '#9c27b0';
+        secondaryColor = '#ba68c8';
+        break;
+      case 5:
+        primaryColor = '#f44336';
+        secondaryColor = '#e57373';
+        break;
+      case 6:
+        primaryColor = '#ff9800';
+        secondaryColor = '#ffb74d';
+        break;
+      default: // World 1 and fallback
+        primaryColor = '#D93d00';
+        secondaryColor = '#ff9d54';
+    }
+    
+    // Draw ember particles with world-specific colors
+    this.ctx.globalAlpha = 0.2;
+    for (let i = 0; i < 50; i++) {
+      const x = Math.sin(i * 727) * this.width;
+      const y = (Math.cos(i * 373) * this.height * 2 - yOffset) % this.height;
+      const size = Math.max(1 + Math.sin(i) * 2, 0.5);
+      
+      this.ctx.fillStyle = i % 2 === 0 ? primaryColor : secondaryColor;
+      this.ctx.beginPath();
+      this.ctx.arc(x, y, size, 0, Math.PI * 2);
+      this.ctx.fill();
+    }
+    this.ctx.globalAlpha = 1.0;
   }
   
   gameLoop(timestamp) {
@@ -1193,7 +1288,27 @@ export class Game {
     if (success) {
       // Update game background based on world settings
       const worldSettings = this.worldManager.getCurrentWorld().settings;
+      
+      // Apply world-specific visual changes
       document.body.style.backgroundColor = worldSettings.backgroundColor;
+      this.canvas.style.backgroundColor = worldSettings.backgroundColor;
+      
+      // Add data attribute to body for CSS targeting
+      document.body.setAttribute('data-world', worldNumber);
+      
+      // Apply world-specific CSS class to body
+      // Remove any existing world classes
+      for (let i = 1; i <= 6; i++) {
+        document.body.classList.remove(`world-${i}`);
+      }
+      // Add current world class
+      document.body.classList.add(`world-${worldNumber}`);
+      
+      // Force a theme fix to ensure world visuals are applied
+      if (window.worldThemeFixer) {
+        window.worldThemeFixer.fixAllWorldThemes();
+        window.worldThemeFixer.fixHazardCoordinators();
+      }
       
       // Update game state with world settings
       if (worldSettings.timeToComplete) {

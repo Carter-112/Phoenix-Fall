@@ -19,6 +19,14 @@ import { World4HazardCoordinator } from '../worlds/world4/World4HazardCoordinato
 import { World5HazardCoordinator } from '../worlds/world5/world5HazardCoordinator.js';
 import { World6HazardCoordinator } from '../worlds/world6/World6HazardCoordinator.js';
 
+// Import enemy coordinators for each world
+import { World1EnemyCoordinator } from '../worlds/world1/world1EnemyCoordinator.js';
+import { World2EnemyCoordinator } from '../worlds/world2/world2EnemyCoordinator.js';
+import { World3EnemyCoordinator } from '../worlds/world3/world3EnemyCoordinator.js';
+import { World4EnemyCoordinator } from '../worlds/world4/world4EnemyCoordinator.js';
+import { World5EnemyCoordinator } from '../worlds/world5/world5EnemyCoordinator.js';
+import { World6EnemyCoordinator } from '../worlds/world6/world6EnemyCoordinator.js';
+
 export class WorldManager {
   constructor(game) {
     this.game = game;
@@ -44,8 +52,21 @@ export class WorldManager {
       6: World6HazardCoordinator
     };
     
+    // Map of world-specific enemy coordinators
+    this.enemyCoordinators = {
+      1: World1EnemyCoordinator,
+      2: World2EnemyCoordinator,
+      3: World3EnemyCoordinator,
+      4: World4EnemyCoordinator,
+      5: World5EnemyCoordinator,
+      6: World6EnemyCoordinator
+    };
+    
     // Current active hazard coordinator instance
     this.currentHazardCoordinator = null;
+    
+    // Current active enemy coordinator instance
+    this.currentEnemyCoordinator = null;
     
     // Initialize with world 1 settings
     this.currentWorld = this.worlds[1];
@@ -78,6 +99,14 @@ export class WorldManager {
   }
   
   /**
+   * Get the current enemy coordinator
+   * @returns {Object|null} Current enemy coordinator or null if none for this world
+   */
+  getCurrentEnemyCoordinator() {
+    return this.currentEnemyCoordinator;
+  }
+  
+  /**
    * Set the current world and apply its settings
    * @param {number} worldNumber - World number to set
    * @returns {boolean} Whether the world was successfully set
@@ -97,6 +126,12 @@ export class WorldManager {
       this.currentHazardCoordinator = null;
     }
     
+    // Clean up any existing enemy coordinator
+    if (this.currentEnemyCoordinator) {
+      this.currentEnemyCoordinator.setActive(false);
+      this.currentEnemyCoordinator = null;
+    }
+    
     // Store the new world configuration
     this.currentWorldNumber = worldNumber;
     this.currentWorld = this.worlds[worldNumber];
@@ -104,6 +139,11 @@ export class WorldManager {
     // Create new hazard coordinator if this world has one
     if (this.hazardCoordinators[worldNumber]) {
       this.currentHazardCoordinator = new this.hazardCoordinators[worldNumber](this.currentWorld);
+    }
+    
+    // Create new enemy coordinator if this world has one
+    if (this.enemyCoordinators[worldNumber]) {
+      this.currentEnemyCoordinator = new this.enemyCoordinators[worldNumber](this.currentWorld);
     }
     
     // Apply world settings to the game
@@ -172,6 +212,11 @@ export class WorldManager {
       this.currentHazardCoordinator.setActive(true);
     }
     
+    // Activate enemy coordinator if one exists for this world
+    if (this.currentEnemyCoordinator) {
+      this.currentEnemyCoordinator.setActive(true);
+    }
+    
     // Apply enemy spawn rates and properties
     this.applyEnemySettings();
     
@@ -208,18 +253,21 @@ export class WorldManager {
   }
   
   /**
-   * Update the current world's hazard coordinator
-   * This should be called in the game's main update loop
-   * @param {number} deltaTime - Time since last update in ms
+   * Update method to be called each frame
+   * This updates the hazard and enemy coordinators
+   * @param {number} deltaTime - Time since last frame in seconds
    */
   update(deltaTime) {
-    // Update hazard coordinator if one exists for the current world
+    const currentTime = performance.now();
+    
+    // Update hazard coordinator
     if (this.currentHazardCoordinator) {
-      const width = window.innerWidth;
-      const height = window.innerHeight;
-      const currentTime = performance.now();
-      
-      this.currentHazardCoordinator.update(deltaTime, currentTime, width, height);
+      this.currentHazardCoordinator.update(deltaTime, currentTime, this.game.width, this.game.height);
+    }
+    
+    // Update enemy coordinator
+    if (this.currentEnemyCoordinator) {
+      this.currentEnemyCoordinator.update(deltaTime, currentTime, this.game);
     }
   }
   
@@ -250,40 +298,46 @@ export class WorldManager {
   }
   
   /**
-   * Apply physics effects from the current world to the phoenix
+   * Apply physics effects from the current world
    * @param {Phoenix} phoenix - The player's phoenix object
    */
   applyPhysicsEffects(phoenix) {
-    if (this.currentHazardCoordinator && this.currentHazardCoordinator.applyPhysicsEffects) {
-      this.currentHazardCoordinator.applyPhysicsEffects(phoenix);
-    }
+    if (!phoenix) return;
+    
+    // Apply world-specific physics to phoenix
+    // To be implemented by each world's hazard coordinator
   }
   
   /**
-   * Reset the current world state
-   * This should be called when restarting a level
+   * Reset the current world's state
    */
   resetCurrentWorld() {
+    // Reset hazard coordinator
     if (this.currentHazardCoordinator) {
       this.currentHazardCoordinator.reset();
     }
+    
+    // Reset enemy coordinator
+    if (this.currentEnemyCoordinator) {
+      this.currentEnemyCoordinator.reset();
+    }
   }
   
   /**
-   * Get world name by number
-   * @param {number} worldNumber - World number
-   * @returns {string} World name or default if not found
+   * Get a world's name by number
+   * @param {number} worldNumber - The world number
+   * @returns {string} The world name or 'Unknown World'
    */
   getWorldName(worldNumber) {
-    return this.worlds[worldNumber]?.name || `World ${worldNumber}`;
+    return this.worlds[worldNumber]?.name || 'Unknown World';
   }
   
   /**
-   * Get world description by number
-   * @param {number} worldNumber - World number
-   * @returns {string} World description or default if not found
+   * Get a world's description by number
+   * @param {number} worldNumber - The world number
+   * @returns {string} The world description or empty string
    */
   getWorldDescription(worldNumber) {
-    return this.worlds[worldNumber]?.description || `World ${worldNumber} description`;
+    return this.worlds[worldNumber]?.description || '';
   }
 } 

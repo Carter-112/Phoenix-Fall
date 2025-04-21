@@ -40,18 +40,78 @@ export class Phoenix {
     this.nearMissTimer = 0;
     this.nearMissDuration = 0.3; // Duration in seconds
     this.nearMissIntensity = 0; // Current intensity of the warning effect
-    this.flameColors = [
-      { h: 15, s: 100, l: 60 },  // Deep orange
-      { h: 30, s: 100, l: 70 },  // Orange
-      { h: 45, s: 100, l: 75 },  // Gold
-      { h: 60, s: 100, l: 80 },  // Yellow
-    ];
+    
+    // Default World 1 flame colors
+    this.worldFlameColors = {
+      1: [
+        { h: 15, s: 100, l: 60 },  // Deep orange
+        { h: 30, s: 100, l: 70 },  // Orange
+        { h: 45, s: 100, l: 75 },  // Gold
+        { h: 60, s: 100, l: 80 },  // Yellow
+      ],
+      2: [
+        { h: 170, s: 100, l: 60 },  // Deep teal
+        { h: 175, s: 100, l: 70 },  // Teal
+        { h: 180, s: 90, l: 75 },   // Light teal
+        { h: 185, s: 80, l: 80 },   // Cyan
+      ],
+      3: [
+        { h: 200, s: 100, l: 60 },  // Deep blue
+        { h: 210, s: 100, l: 70 },  // Blue
+        { h: 220, s: 90, l: 75 },   // Light blue
+        { h: 230, s: 80, l: 80 },   // Sky blue
+      ],
+      4: [
+        { h: 270, s: 100, l: 60 },  // Deep purple
+        { h: 280, s: 100, l: 70 },  // Purple
+        { h: 290, s: 90, l: 75 },   // Light purple
+        { h: 300, s: 80, l: 80 },   // Pink-purple
+      ],
+      5: [
+        { h: 350, s: 100, l: 60 },  // Deep red
+        { h: 355, s: 100, l: 70 },  // Red
+        { h: 0, s: 90, l: 75 },     // Light red
+        { h: 5, s: 80, l: 80 },     // Red-orange
+      ],
+      6: [
+        { h: 30, s: 100, l: 60 },   // Deep gold
+        { h: 40, s: 100, l: 70 },   // Gold
+        { h: 50, s: 90, l: 75 },    // Light gold
+        { h: 60, s: 80, l: 80 },    // Yellow-gold
+      ]
+    };
+    
+    // Start with world 1 flame colors
+    this.flameColors = this.worldFlameColors[1];
     
     // Initialize body particles
     this.initializeBodyParticles();
     this.healingParticles = [];
     this.glowIntensity = 1;
     this.glowColor = null;
+    
+    // Set up world change listener
+    this.setupWorldChangeListener();
+  }
+  
+  setupWorldChangeListener() {
+    // Check for world changes at regular intervals
+    this.worldCheckInterval = setInterval(() => {
+      if (window.gameInstance && window.gameInstance.worldManager) {
+        const currentWorld = window.gameInstance.worldManager.getCurrentWorldNumber();
+        this.updateWorldColors(currentWorld);
+      }
+    }, 1000); // Check every second
+  }
+  
+  updateWorldColors(worldNumber) {
+    // If world has changed, update flame colors
+    if (this.worldFlameColors[worldNumber] && 
+        this.flameColors !== this.worldFlameColors[worldNumber]) {
+      console.log(`Updating phoenix flame colors for world ${worldNumber}`);
+      this.flameColors = this.worldFlameColors[worldNumber];
+      this.initializeBodyParticles(); // Regenerate body particles with new colors
+    }
   }
   
   initializeBodyParticles() {

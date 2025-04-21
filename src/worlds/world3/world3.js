@@ -17,27 +17,15 @@ export const world3 = {
     
     // Enemy spawn configuration
     enemies: {
-        flameHelicopter: {
-            spawnRate: 1600, // Even faster spawns
-            maxActive: 4,
-            speed: 2.8, // Faster than previous worlds
-            health: 140
-        },
-        magmaBat: {
-            spawnRate: 2200,
+        frostGolem: { // Enemy unique to World 3
+            spawnRate: 2500, // Faster spawn rate since fewer enemy types
             maxActive: 3,
-            speed: 3.2,
-            health: 90
-        },
-        frostGolem: { // New enemy type
-            spawnRate: 3500,
-            maxActive: 2,
             speed: 1.8,
             health: 250
         },
-        icePhoenix: { // New enemy type
-            spawnRate: 5000,
-            maxActive: 1,
+        icePhoenix: { // Enemy unique to World 3
+            spawnRate: 3500,
+            maxActive: 2,
             speed: 3.5,
             health: 180
         }

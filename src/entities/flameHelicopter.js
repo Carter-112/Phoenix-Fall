@@ -40,17 +40,64 @@ export class FlameHelicopter {
     this.rotorParticles = [];
     this.tailParticles = [];
     
-    // Color palette for helicopter - fiery oranges and reds
-    this.flameColors = [
-      { h: 10, s: 100, l: 50 },  // Deep red-orange
-      { h: 20, s: 100, l: 45 },  // Burnt orange
-      { h: 30, s: 90, l: 40 },   // Dark amber
-    ];
+    // World-specific color palettes
+    this.worldFlameColors = {
+      1: [ // World 1 - red/orange
+        { h: 10, s: 100, l: 50 },  // Deep red-orange
+        { h: 20, s: 100, l: 45 },  // Burnt orange
+        { h: 30, s: 90, l: 40 },   // Dark amber
+      ],
+      2: [ // World 2 - teal/green
+        { h: 160, s: 90, l: 40 },  // Dark teal
+        { h: 170, s: 90, l: 35 },  // Murky teal
+        { h: 180, s: 80, l: 30 },  // Deep cyan
+      ],
+      3: [ // World 3 - blue
+        { h: 200, s: 90, l: 40 },  // Dark blue
+        { h: 210, s: 90, l: 35 },  // Navy
+        { h: 220, s: 80, l: 30 },  // Deep royal blue
+      ],
+      4: [ // World 4 - purple
+        { h: 270, s: 90, l: 40 },  // Dark purple
+        { h: 280, s: 90, l: 35 },  // Deep violet
+        { h: 290, s: 80, l: 30 },  // Magenta-purple
+      ],
+      5: [ // World 5 - red
+        { h: 350, s: 90, l: 40 },  // Dark red
+        { h: 0, s: 90, l: 35 },    // Crimson
+        { h: 10, s: 80, l: 30 },   // Blood red
+      ],
+      6: [ // World 6 - gold
+        { h: 30, s: 90, l: 40 },   // Dark gold
+        { h: 40, s: 90, l: 35 },   // Bronze
+        { h: 50, s: 80, l: 30 },   // Amber
+      ]
+    };
     
+    // Set initial colors based on current world
+    this.getCurrentWorldColors();
     this.initializeParticles();
   }
   
+  getCurrentWorldColors() {
+    // Default to World 1 colors
+    this.flameColors = this.worldFlameColors[1];
+    
+    // Try to get current world from game instance
+    if (window.gameInstance && window.gameInstance.worldManager) {
+      const worldNumber = window.gameInstance.worldManager.getCurrentWorldNumber();
+      if (this.worldFlameColors[worldNumber]) {
+        this.flameColors = this.worldFlameColors[worldNumber];
+      }
+    }
+  }
+  
   initializeParticles() {
+    // Reset particle arrays
+    this.bodyParticles = [];
+    this.rotorParticles = [];
+    this.tailParticles = [];
+    
     // Body particles (helicopter fuselage)
     for (let i = 0; i < 15; i++) {
       this.bodyParticles.push({
@@ -128,6 +175,17 @@ export class FlameHelicopter {
   }
   
   update(deltaTime) {
+    // Check if world has changed (every ~5 seconds)
+    if (Math.random() < 0.01) {
+      const oldColors = this.flameColors;
+      this.getCurrentWorldColors();
+      
+      // Reinitialize particles if colors changed
+      if (oldColors !== this.flameColors) {
+        this.initializeParticles();
+      }
+    }
+    
     // Basic movement downward
     this.y += this.speed * deltaTime;
     

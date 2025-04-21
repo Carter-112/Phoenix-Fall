@@ -1,6 +1,56 @@
-# PhoenixFall Game
+# Phoenixfall
 
 A vertical-scrolling, particle-based survival and progression game where you control a phoenix rising through dangerous atmospheric layers.
+
+## Module Loading Issue Fix
+
+If you're experiencing module loading errors like:
+
+```
+NS_ERROR_CORRUPTED_CONTENT
+Loading module was blocked because of a disallowed MIME type ("")
+```
+
+Follow these steps to fix the issue:
+
+1. **Install dependencies**
+
+```bash
+npm install
+```
+
+2. **Start the server**
+
+```bash
+npm start
+```
+
+3. **Access the game**
+
+Open your browser and navigate to: http://localhost:3000
+
+## Why this works
+
+The fix addresses the MIME type issue by:
+1. Using Express instead of a basic HTTP server
+2. Setting the correct `Content-Type: application/javascript` header for JavaScript modules
+3. Ensuring proper module path resolution
+
+## Development
+
+For development with auto-restart:
+
+```bash
+npm run dev
+```
+
+## Game Features
+
+- Particle-based phoenix with flame effects
+- Multiple atmospheric layers to progress through
+- Enemy types like the InfernalBeast with advanced attack patterns
+- Collectible embers that boost your abilities
+- Dynamic difficulty progression
 
 ## Project Structure
 

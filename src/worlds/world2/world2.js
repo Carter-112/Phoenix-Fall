@@ -17,21 +17,9 @@ export const world2 = {
     
     // Enemy spawn configuration
     enemies: {
-        flameHelicopter: {
-            spawnRate: 1800, // Faster spawns than World 1
-            maxActive: 4, // More enemies at once
-            speed: 2.5, // Faster movement
-            health: 120 // Tougher enemies
-        },
-        magmaBat: {
-            spawnRate: 2500,
-            maxActive: 3,
-            speed: 3,
-            health: 70
-        },
-        lavaGolem: { // New enemy type
-            spawnRate: 4000,
-            maxActive: 1,
+        lavaGolem: { // Only enemy unique to World 2
+            spawnRate: 2500, // Faster spawn rate since it's the only enemy
+            maxActive: 4, // More active enemies to compensate for fewer types
             speed: 1.5,
             health: 200
         }

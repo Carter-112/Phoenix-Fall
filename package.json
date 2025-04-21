@@ -1,7 +1,7 @@
 {
   "name": "phoenixfall",
   "version": "1.0.0",
-  "description": "A particle-based phoenix survival game",
+  "description": "A vertical-scrolling, particle-based survival and progression game",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -9,8 +9,10 @@
     "sync": "browser-sync start --server --files \"*.html, *.css, *.js, src/**/*.js, src/**/*.css\""
   },
   "author": "",
-  "license": "ISC",
-  "dependencies": {},
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2"
+  },
   "devDependencies": {
     "nodemon": "^2.0.22",
     "browser-sync": "^2.29.3"

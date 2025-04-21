@@ -1,6 +1,6 @@
-import { Ember } from 'ember';
-import { FrostEmber } from 'frostEmber';
-import { InfernalEmber } from 'infernalEmber';
+import { Ember } from './ember.js';
+import { FrostEmber } from './frostEmber.js';
+import { InfernalEmber } from './infernalEmber.js';
 
 export class EmberFactory {
     constructor(worldConfig) {

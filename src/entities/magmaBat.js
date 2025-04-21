@@ -27,17 +27,63 @@ export class MagmaBat {
     this.oscillateFactor = Math.random() * Math.PI * 2;
     this.hoverPoint = { x: x, y: y };
     
-    // Magma bat colors - deeper reds and oranges
-    this.batColors = [
-      { h: 0, s: 90, l: 40 },    // Deep red
-      { h: 15, s: 100, l: 35 },  // Dark orange-red
-      { h: 20, s: 100, l: 30 },  // Burnt orange
-    ];
+    // World-specific color palettes
+    this.worldBatColors = {
+      1: [ // World 1 - red/orange
+        { h: 0, s: 90, l: 40 },    // Deep red
+        { h: 15, s: 100, l: 35 },  // Dark orange-red
+        { h: 20, s: 100, l: 30 },  // Burnt orange
+      ],
+      2: [ // World 2 - teal/green
+        { h: 160, s: 90, l: 35 },  // Deep teal
+        { h: 170, s: 100, l: 30 },  // Dark teal
+        { h: 175, s: 100, l: 25 },  // Forest teal
+      ],
+      3: [ // World 3 - blue
+        { h: 200, s: 90, l: 35 },  // Deep blue
+        { h: 210, s: 100, l: 30 },  // Dark blue
+        { h: 220, s: 100, l: 25 },  // Navy blue
+      ],
+      4: [ // World 4 - purple
+        { h: 270, s: 90, l: 35 },  // Deep purple
+        { h: 280, s: 100, l: 30 },  // Dark violet
+        { h: 290, s: 100, l: 25 },  // Magenta
+      ],
+      5: [ // World 5 - red
+        { h: 350, s: 90, l: 35 },  // Deep crimson
+        { h: 0, s: 100, l: 30 },   // Blood red
+        { h: 10, s: 100, l: 25 },  // Dark red
+      ],
+      6: [ // World 6 - gold
+        { h: 30, s: 90, l: 35 },   // Deep gold
+        { h: 40, s: 100, l: 30 },  // Bronze
+        { h: 45, s: 100, l: 25 },  // Dark amber
+      ]
+    };
     
+    // Set initial colors based on current world
+    this.getCurrentWorldColors();
     this.initializeParticles();
   }
   
+  getCurrentWorldColors() {
+    // Default to World 1 colors
+    this.batColors = this.worldBatColors[1];
+    
+    // Try to get current world from game instance
+    if (window.gameInstance && window.gameInstance.worldManager) {
+      const worldNumber = window.gameInstance.worldManager.getCurrentWorldNumber();
+      if (this.worldBatColors[worldNumber]) {
+        this.batColors = this.worldBatColors[worldNumber];
+      }
+    }
+  }
+  
   initializeParticles() {
+    // Reset particle arrays
+    this.bodyParticles = [];
+    this.wingParticles = [];
+    
     // Create body particles
     for (let i = 0; i < 12; i++) {
       this.bodyParticles.push({
@@ -83,6 +129,17 @@ export class MagmaBat {
   }
   
   update(deltaTime, phoenixX, phoenixY) {
+    // Check if world has changed (every ~5 seconds)
+    if (Math.random() < 0.01) {
+      const oldColors = this.batColors;
+      this.getCurrentWorldColors();
+      
+      // Reinitialize particles if colors changed
+      if (oldColors !== this.batColors) {
+        this.initializeParticles();
+      }
+    }
+    
     // Basic movement - floating downward with sideways oscillation
     this.y += this.speed * deltaTime;
     

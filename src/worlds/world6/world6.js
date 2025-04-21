@@ -17,33 +17,21 @@ export const world6 = {
     
     // Enemy spawn configuration
     enemies: {
-        flameHelicopter: {
-            spawnRate: 1100, // Fastest of all worlds
-            maxActive: 7, 
-            speed: 3.5,
-            health: 200
-        },
-        magmaBat: {
-            spawnRate: 1600,
-            maxActive: 6,
-            speed: 4.0,
-            health: 150
-        },
-        solarSpirit: { // New enemy type
-            spawnRate: 3000,
-            maxActive: 3,
+        solarSpirit: { // Enemy unique to World 6
+            spawnRate: 2000, // Faster spawn rate
+            maxActive: 4, // More active to compensate
             speed: 2.8,
             health: 500
         },
-        blackSunling: { // New enemy type
-            spawnRate: 4000,
-            maxActive: 2,
+        blackSunling: { // Enemy unique to World 6
+            spawnRate: 3000,
+            maxActive: 3,
             speed: 3.0,
             health: 300
         },
-        flameLeech: { // New enemy type
-            spawnRate: 4500,
-            maxActive: 2,
+        flameLeech: { // Enemy unique to World 6
+            spawnRate: 3500,
+            maxActive: 3,
             speed: 3.2,
             health: 250,
             trackPlayer: true // This enemy tracks the player's movement

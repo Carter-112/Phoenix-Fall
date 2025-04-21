@@ -17,27 +17,15 @@ export const world4 = {
     
     // Enemy spawn configuration
     enemies: {
-        flameHelicopter: {
-            spawnRate: 1400, // Faster spawns than previous worlds
-            maxActive: 5, 
-            speed: 3.0,
-            health: 160
-        },
-        magmaBat: {
-            spawnRate: 2000,
-            maxActive: 4,
-            speed: 3.5,
-            health: 110
-        },
-        voidWraith: { // New enemy type
-            spawnRate: 3000,
-            maxActive: 2,
+        voidWraith: { // Enemy unique to World 4
+            spawnRate: 2200, // Faster spawn rate since fewer enemy types
+            maxActive: 3, // More active to compensate for fewer types
             speed: 2.2,
             health: 300
         },
-        celestialGuardian: { // New enemy type
-            spawnRate: 6000,
-            maxActive: 1,
+        celestialGuardian: { // Enemy unique to World 4
+            spawnRate: 4000,
+            maxActive: 2, // Increased from 1 to compensate
             speed: 2.0,
             health: 500
         }
