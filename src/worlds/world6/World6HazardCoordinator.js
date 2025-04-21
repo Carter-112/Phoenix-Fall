@@ -247,4 +247,30 @@ export class World6HazardCoordinator {
             this.patternActive = false;
         }
     }
+    
+    /**
+     * Generic hazard spawn method called by game.spawnHazard()
+     * @param {number} x - X spawn position
+     * @param {number} y - Y spawn position
+     */
+    spawnHazard(x, y) {
+        // Get game instance from window
+        const game = window.gameInstance;
+        if (!game) return;
+        
+        // Randomly choose between the different hazard types
+        const random = Math.random();
+        
+        // Split probability between the three hazard types
+        if (random < 0.33) {
+            // Spawn gravity rift
+            this.gravityRiftManager.spawnRift(x, y);
+        } else if (random < 0.66) {
+            // Spawn sun pulse
+            this.sunPulseManager.spawnPulse(x, y);
+        } else {
+            // Spawn dimensional collapse
+            this.dimensionalCollapseManager.spawnCollapse(x, y);
+        }
+    }
 } 

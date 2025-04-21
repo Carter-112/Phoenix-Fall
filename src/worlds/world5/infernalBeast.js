@@ -33,6 +33,13 @@ export class InfernalBeast extends Enemy {
         this.dashDuration = 0;
         this.isDashing = false;
         
+        // Burning effect properties
+        this.burning = false;
+        this.burnDuration = 0;
+        this.burnDamage = 0;
+        this.burnIntensity = 0;
+        this.lastBurnTime = 0;
+        
         // Movement patterns
         this.movementPattern = this.isBoss ? 'hover' : 'seek';
         this.hoverOffset = 0;
@@ -93,6 +100,22 @@ export class InfernalBeast extends Enemy {
     }
     
     /**
+     * Set the enemy on fire
+     * @param {number} duration - Duration of burning effect in seconds
+     * @param {number} intensity - Intensity of burning (damage multiplier)
+     */
+    setBurning(duration, intensity) {
+        this.burning = true;
+        this.burnDuration = duration * 1000; // Convert to milliseconds
+        this.burnIntensity = intensity;
+        this.burnDamage = 5 * intensity; // Base damage per second * intensity
+        this.lastBurnTime = performance.now();
+        
+        // Being an infernal beast, they take less damage from fire
+        this.burnDamage *= 0.5;
+    }
+    
+    /**
      * Update the enemy state
      * @param {number} deltaTime - Time elapsed since last update
      * @param {Object} game - Game instance
@@ -107,6 +130,38 @@ export class InfernalBeast extends Enemy {
         this.attackCooldown -= deltaTime;
         if (this.dashCooldown > 0) this.dashCooldown -= deltaTime;
         if (this.dashDuration > 0) this.dashDuration -= deltaTime;
+        
+        // Process burning effect
+        if (this.burning) {
+            // Reduce burn duration
+            this.burnDuration -= deltaTime;
+            
+            // Apply burn damage every 500ms
+            const currentTime = performance.now();
+            if (currentTime - this.lastBurnTime > 500) {
+                // Calculate damage based on time since last burn tick
+                const timeSinceLastBurn = (currentTime - this.lastBurnTime) / 1000; // in seconds
+                const damage = this.burnDamage * timeSinceLastBurn;
+                
+                this.health -= damage;
+                this.lastBurnTime = currentTime;
+                
+                // Create burn particles if we have a particle system
+                if (this.particleSystem) {
+                    this.particleSystem.createEmber(
+                        this.x + (Math.random() - 0.5) * this.width * 0.8, 
+                        this.y + (Math.random() - 0.5) * this.height * 0.8,
+                        0, -1 - Math.random(), // Upward velocity
+                        2 + Math.random() * 2 // Size
+                    );
+                }
+            }
+            
+            // End burning if duration is over
+            if (this.burnDuration <= 0) {
+                this.burning = false;
+            }
+        }
         
         // Check for phase transitions based on health percentage
         const healthPercentage = this.health / this.maxHealth;

@@ -441,13 +441,25 @@ export class World5HazardCoordinator {
             
             draw(ctx) {
                 // Draw fire wall with animated effect
-                const gradient = ctx.createLinearGradient(0, this.y, 0, this.y + this.height);
-                gradient.addColorStop(0, 'rgba(255, 50, 0, 0.1)');
-                gradient.addColorStop(0.5, 'rgba(255, 120, 0, 0.7)');
-                gradient.addColorStop(1, 'rgba(255, 50, 0, 0.1)');
-                
-                ctx.fillStyle = gradient;
-                ctx.fillRect(this.x, this.y, this.width, this.height);
+                // Ensure values are finite before creating gradient
+                if (isNaN(this.y) || isNaN(this.height) || !isFinite(this.y) || !isFinite(this.height) || 
+                    isNaN(this.x) || isNaN(this.width) || !isFinite(this.x) || !isFinite(this.width)) {
+                    return; // Skip drawing if values are invalid
+                }
+
+                try {
+                    const gradient = ctx.createLinearGradient(0, this.y, 0, this.y + this.height);
+                    gradient.addColorStop(0, 'rgba(255, 50, 0, 0.1)');
+                    gradient.addColorStop(0.5, 'rgba(255, 120, 0, 0.7)');
+                    gradient.addColorStop(1, 'rgba(255, 50, 0, 0.1)');
+                    
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(this.x, this.y, this.width, this.height);
+                } catch (e) {
+                    // Fallback to solid color if gradient fails
+                    ctx.fillStyle = 'rgba(255, 120, 0, 0.5)';
+                    ctx.fillRect(this.x, this.y, this.width, this.height);
+                }
                 
                 // Draw flames on top
                 const flameHeight = 30;
@@ -456,6 +468,11 @@ export class World5HazardCoordinator {
                 for (let i = 0; i < flameCount; i++) {
                     const flameX = (i * 20) + Math.sin(Date.now() * 0.01 + i) * 5;
                     const flameY = this.y;
+                    
+                    // Skip drawing individual flames if values are invalid
+                    if (isNaN(flameX) || isNaN(flameY) || !isFinite(flameX) || !isFinite(flameY)) {
+                        continue;
+                    }
                     
                     // Draw animated flame
                     ctx.beginPath();
@@ -469,12 +486,23 @@ export class World5HazardCoordinator {
                         flameX, flameY
                     );
                     
-                    const flameGradient = ctx.createLinearGradient(flameX, flameY, flameX, flameY - flameHeight);
-                    flameGradient.addColorStop(0, '#ff3300');
-                    flameGradient.addColorStop(0.7, '#ffaa00');
-                    flameGradient.addColorStop(1, 'rgba(255, 200, 0, 0.5)');
+                    try {
+                        // Ensure values are finite before creating gradient
+                        if (isNaN(flameY) || !isFinite(flameY) || isNaN(flameHeight) || !isFinite(flameHeight)) {
+                            // Use a solid color fallback if we can't create a gradient
+                            ctx.fillStyle = '#ff6600';
+                        } else {
+                            const flameGradient = ctx.createLinearGradient(flameX, flameY, flameX, flameY - flameHeight);
+                            flameGradient.addColorStop(0, '#ff3300');
+                            flameGradient.addColorStop(0.7, '#ffaa00');
+                            flameGradient.addColorStop(1, 'rgba(255, 200, 0, 0.5)');
+                            ctx.fillStyle = flameGradient;
+                        }
+                    } catch (e) {
+                        // Fallback to solid color if gradient fails
+                        ctx.fillStyle = '#ff6600';
+                    }
                     
-                    ctx.fillStyle = flameGradient;
                     ctx.fill();
                 }
             },

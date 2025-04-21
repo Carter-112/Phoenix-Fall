@@ -282,6 +282,32 @@ export class SoundManager {
     }
   }
   
+  /**
+   * Stops all currently playing sounds by disconnecting the master gain node
+   * This is used when pausing the game to ensure all sounds are stopped
+   */
+  stopAllSounds() {
+    // Store the current master volume
+    const currentVolume = this.masterGain ? this.masterGain.gain.value : 0;
+    
+    // Immediately silence all sounds
+    if (this.masterGain) {
+      this.masterGain.gain.value = 0;
+    }
+    
+    // Stop the gameplay loop specifically
+    this.stopGameplayLoop();
+    
+    // Create a new master gain node to replace the old one
+    // This effectively disconnects all current sound sources
+    if (this.audioContext) {
+      const newMasterGain = this.audioContext.createGain();
+      newMasterGain.gain.value = currentVolume; // Restore the previous volume setting
+      newMasterGain.connect(this.audioContext.destination);
+      this.masterGain = newMasterGain;
+    }
+  }
+  
   playGameOver() {
     return this.playSound('gameOver', {
       volume: 0.6

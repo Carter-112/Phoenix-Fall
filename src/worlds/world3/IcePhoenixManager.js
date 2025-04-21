@@ -50,6 +50,21 @@ export class IcePhoenixManager {
                 }
             }
             
+            // Update all existing ice blasts for this phoenix
+            for (let j = phoenix.iceBlasts.length - 1; j >= 0; j--) {
+                const blast = phoenix.iceBlasts[j];
+                
+                // Move the blast
+                blast.x += blast.vx * deltaTime;
+                blast.y += blast.vy * deltaTime;
+                
+                // Check if blast is out of bounds
+                if (blast.x < -50 || blast.x > width + 50 || 
+                    blast.y < -50 || blast.y > height + 50) {
+                    phoenix.iceBlasts.splice(j, 1);
+                }
+            }
+            
             // Check if phoenix is dead
             if (phoenix.health <= 0) {
                 // Create explosion effect
@@ -62,21 +77,6 @@ export class IcePhoenixManager {
                 
                 // Remove the phoenix
                 this.phoenixes.splice(i, 1);
-            }
-        }
-        
-        // Update all existing ice blasts
-        for (let i = phoenix.iceBlasts.length - 1; i >= 0; i--) {
-            const blast = phoenix.iceBlasts[i];
-            
-            // Move the blast
-            blast.x += blast.vx * deltaTime;
-            blast.y += blast.vy * deltaTime;
-            
-            // Check if blast is out of bounds
-            if (blast.x < -50 || blast.x > width + 50 || 
-                blast.y < -50 || blast.y > height + 50) {
-                phoenix.iceBlasts.splice(i, 1);
             }
         }
     }

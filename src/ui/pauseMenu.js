@@ -237,9 +237,9 @@ export class PauseMenu {
           this.game.pauseButton.hide();
         }
         
-        // Pause game sounds
+        // Stop all game sounds when paused
         if (this.game.soundManager) {
-          this.game.soundManager.stopGameplayLoop();
+          this.game.soundManager.stopAllSounds();
         }
         
         console.log('Game paused');

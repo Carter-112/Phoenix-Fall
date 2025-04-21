@@ -33,6 +33,33 @@ export class World1HazardCoordinator {
   }
   
   /**
+   * Generic hazard spawn method called by game.spawnHazard()
+   * @param {number} x - X spawn position
+   * @param {number} y - Y spawn position
+   */
+  spawnHazard(x, y) {
+    // Get game instance from window
+    const game = window.gameInstance;
+    if (!game) return;
+    
+    // World 1 hazards are simple - just spawn FlameHelicopter or LavaBurst
+    if (Math.random() < 0.6) {
+      if (typeof FlameHelicopter !== 'undefined') {
+        game.hazards.push(new FlameHelicopter(x, y, game.particleSystem));
+      }
+    } else {
+      if (typeof LavaBurst !== 'undefined') {
+        game.hazards.push(new LavaBurst(x, y, game.particleSystem));
+      } else {
+        // Fallback to FlameHelicopter if LavaBurst is not defined
+        if (typeof FlameHelicopter !== 'undefined') {
+          game.hazards.push(new FlameHelicopter(x, y, game.particleSystem));
+        }
+      }
+    }
+  }
+  
+  /**
    * Update method called each frame
    * @param {number} deltaTime - Time since last frame in ms
    * @param {number} currentTime - Current game time in ms

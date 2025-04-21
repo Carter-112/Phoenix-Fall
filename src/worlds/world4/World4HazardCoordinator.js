@@ -31,6 +31,30 @@ export class World4HazardCoordinator {
         }
     }
 
+    /**
+     * Generic hazard spawn method called by game.spawnHazard()
+     * @param {number} x - X spawn position
+     * @param {number} y - Y spawn position
+     */
+    spawnHazard(x, y) {
+        // Get game instance from window
+        const game = window.gameInstance;
+        if (!game) return;
+        
+        // Randomly choose between gravity well and void tear
+        const random = Math.random();
+        
+        if (random < 0.5) {
+            // 50% chance to spawn a gravity well
+            const gravityWellConfig = this.config.hazards.gravityWell;
+            this.spawnGravityWell(x, y, gravityWellConfig);
+        } else {
+            // 50% chance to spawn a void tear
+            const voidTearConfig = this.config.hazards.voidTear;
+            this.spawnVoidTear(x, y, voidTearConfig);
+        }
+    }
+
     update(deltaTime, currentTime, width, height) {
         if (!this.active) return;
 

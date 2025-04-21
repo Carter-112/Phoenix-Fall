@@ -25,6 +25,11 @@ app.use(express.static(__dirname, {
   }
 }));
 
+// Explicitly handle favicon.ico requests
+app.get('/favicon.ico', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'favicon.ico'));
+});
+
 // Fallback route for SPA
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
