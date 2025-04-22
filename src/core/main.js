@@ -8,6 +8,7 @@ import { LoadingAnimation } from '../utils/loadingAnimation.js';
 import { WorldThemeFixer } from './worldThemeFixer.js';
 import { WorldManager } from './WorldManager.js';
 import { WorldUIIntegrator } from '../ui/worldUIIntegrator.js';
+import './globalSettings.js';
 
 /**
  * Initialize the game application
@@ -138,14 +139,35 @@ export function initializeGame(renderDiv) {
       const currentWorld = game.getCurrentWorld();
       const completionResult = worldProgressionSystem.completeWorld(currentWorld);
       
+      console.log(`World ${currentWorld} completed. Completion result:`, completionResult);
+      
+      // Check if game instance is still valid
+      if (!window.gameInstance) {
+        console.error('Game instance not found during world completion');
+        loadingAnimation.hide();
+        return;
+      }
+      
       // Short delay to show loading animation, then show menu
       setTimeout(() => {
+        // Ensure game is properly marked as not running
+        if (game) game.isRunning = false;
+        
         // Show menu but keep rank bar and settings hidden
-        mainMenu.showWithoutRankAndSettings();
+        if (mainMenu) {
+          mainMenu.showWithoutRankAndSettings();
+        } else {
+          console.error('Main menu not found during world completion');
+          loadingAnimation.hide();
+          window.location.reload(); // Fallback reload if menu can't be shown
+          return;
+        }
         
         // Advance to next world if available
-        if (completionResult.success && !completionResult.isLastWorld) {
+        if (completionResult && completionResult.success && !completionResult.isLastWorld) {
           const nextWorld = completionResult.nextWorld;
+          
+          console.log(`Advancing to World ${nextWorld}`);
           
           // Update world indicator to show next world and update unlocked worlds
           if (mainMenu.worldIndicator) {
@@ -168,6 +190,12 @@ export function initializeGame(renderDiv) {
             
             // Create and display world unlock animation
             createWorldUnlockAnimation(nextWorld);
+          }
+        } else {
+          console.log(`World ${currentWorld} was the last world or completion unsuccessful.`);
+          // If it's the last world or completion failed, stay on current world
+          if (mainMenu.worldIndicator) {
+            mainMenu.worldIndicator.setWorld(currentWorld);
           }
         }
         
@@ -261,210 +289,7 @@ export function initializeGame(renderDiv) {
   setTimeout(() => {
     loadingAnimation.hide();
   }, 1200); // Slightly longer initial delay for better user experience
-  
-  // World unlock animation function
-  function createWorldUnlockAnimation(worldNumber) {
-    // Create container for the animation
-    const unlockContainer = document.createElement('div');
-    unlockContainer.className = 'world-unlock-animation';
-    unlockContainer.style.position = 'absolute';
-    unlockContainer.style.top = '0';
-    unlockContainer.style.left = '0';
-    unlockContainer.style.width = '100%';
-    unlockContainer.style.height = '100%';
-    unlockContainer.style.display = 'flex';
-    unlockContainer.style.flexDirection = 'column';
-    unlockContainer.style.justifyContent = 'center';
-    unlockContainer.style.alignItems = 'center';
-    unlockContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
-    unlockContainer.style.zIndex = '2000';
-    unlockContainer.style.opacity = '0';
-    unlockContainer.style.transition = 'opacity 0.5s ease-in-out';
-    
-    // Animation container for the badge
-    const animationBox = document.createElement('div');
-    animationBox.style.position = 'relative';
-    animationBox.style.width = '200px';
-    animationBox.style.height = '200px';
-    animationBox.style.display = 'flex';
-    animationBox.style.justifyContent = 'center';
-    animationBox.style.alignItems = 'center';
-    
-    // Create the world badge
-    const worldBadge = document.createElement('div');
-    worldBadge.style.width = '150px';
-    worldBadge.style.height = '150px';
-    worldBadge.style.borderRadius = '50%';
-    worldBadge.style.backgroundColor = 'rgba(40, 40, 40, 0.95)';
-    worldBadge.style.border = '4px solid #FF5500';
-    worldBadge.style.display = 'flex';
-    worldBadge.style.flexDirection = 'column';
-    worldBadge.style.justifyContent = 'center';
-    worldBadge.style.alignItems = 'center';
-    worldBadge.style.position = 'relative';
-    worldBadge.style.transform = 'scale(0)';
-    worldBadge.style.transition = 'transform 0.5s cubic-bezier(0.17, 0.89, 0.32, 1.49)';
-    worldBadge.style.boxShadow = '0 0 30px rgba(255, 85, 0, 0.7)';
-    
-    // Create "WORLD" text
-    const worldText = document.createElement('div');
-    worldText.textContent = 'WORLD';
-    worldText.style.color = '#FF5500';
-    worldText.style.fontSize = '24px';
-    worldText.style.fontWeight = 'bold';
-    worldText.style.marginBottom = '5px';
-    
-    // Create number
-    const worldNumElement = document.createElement('div');
-    worldNumElement.textContent = worldNumber.toString();
-    worldNumElement.style.color = '#FFFFFF';
-    worldNumElement.style.fontSize = '60px';
-    worldNumElement.style.fontWeight = 'bold';
-    worldNumElement.style.lineHeight = '1';
-    
-    // Assemble the badge
-    worldBadge.appendChild(worldText);
-    worldBadge.appendChild(worldNumElement);
-    
-    // Create outer glow circles
-    const createGlowCircle = (size, delay, duration) => {
-      const circle = document.createElement('div');
-      circle.style.position = 'absolute';
-      circle.style.width = `${size}px`;
-      circle.style.height = `${size}px`;
-      circle.style.borderRadius = '50%';
-      circle.style.border = '2px solid #FF5500';
-      circle.style.boxShadow = '0 0 15px rgba(255, 85, 0, 0.5)';
-      circle.style.opacity = '0';
-      circle.style.transform = 'scale(0.5)';
-      
-      // Animation for the glow circle
-      const animation = circle.animate([
-        { transform: 'scale(0.5)', opacity: 0.7 },
-        { transform: 'scale(1.5)', opacity: 0 }
-      ], {
-        duration: duration,
-        delay: delay,
-        iterations: Infinity
-      });
-      
-      return circle;
-    };
-    
-    // Add multiple glow circles with different sizes and timings
-    animationBox.appendChild(createGlowCircle(160, 0, 2000));
-    animationBox.appendChild(createGlowCircle(180, 500, 2000));
-    animationBox.appendChild(createGlowCircle(200, 1000, 2000));
-    
-    // Add the badge to the animation box
-    animationBox.appendChild(worldBadge);
-    
-    // Create unlock message
-    const unlockMessage = document.createElement('div');
-    unlockMessage.textContent = 'NEW WORLD UNLOCKED!';
-    unlockMessage.style.color = '#FF5500';
-    unlockMessage.style.fontSize = '28px';
-    unlockMessage.style.fontWeight = 'bold';
-    unlockMessage.style.marginTop = '40px';
-    unlockMessage.style.textAlign = 'center';
-    unlockMessage.style.opacity = '0';
-    unlockMessage.style.transform = 'translateY(20px)';
-    unlockMessage.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
-    unlockMessage.style.textShadow = '0 0 10px rgba(255, 85, 0, 0.7)';
-    
-    // Create continue button
-    const continueButton = document.createElement('button');
-    continueButton.textContent = 'CONTINUE';
-    continueButton.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-    continueButton.style.color = '#FF5500';
-    continueButton.style.border = '2px solid #FF5500';
-    continueButton.style.borderRadius = '30px';
-    continueButton.style.padding = '12px 30px';
-    continueButton.style.fontSize = '18px';
-    continueButton.style.fontWeight = 'bold';
-    continueButton.style.marginTop = '30px';
-    continueButton.style.cursor = 'pointer';
-    continueButton.style.opacity = '0';
-    continueButton.style.transform = 'translateY(20px)';
-    continueButton.style.transition = 'opacity 0.5s ease, transform 0.5s ease, background-color 0.2s ease';
-    continueButton.style.boxShadow = '0 0 15px rgba(255, 85, 0, 0.3)';
-    
-    // Add hover effects
-    continueButton.addEventListener('mouseover', () => {
-      continueButton.style.backgroundColor = 'rgba(40, 40, 40, 0.8)';
-      continueButton.style.transform = 'translateY(20px) scale(1.05)';
-      continueButton.style.boxShadow = '0 0 20px rgba(255, 85, 0, 0.5)';
-    });
-    
-    continueButton.addEventListener('mouseout', () => {
-      continueButton.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-      continueButton.style.transform = 'translateY(20px) scale(1)';
-      continueButton.style.boxShadow = '0 0 15px rgba(255, 85, 0, 0.3)';
-    });
-    
-    // Continue button click handler
-    continueButton.addEventListener('click', () => {
-      // Hide the animation with fade out
-      unlockContainer.style.opacity = '0';
-      
-      // Remove after animation completes
-      setTimeout(() => {
-        unlockContainer.remove();
-      }, 500);
-    });
-    
-    // Assemble the animation
-    unlockContainer.appendChild(animationBox);
-    unlockContainer.appendChild(unlockMessage);
-    unlockContainer.appendChild(continueButton);
-    
-    // Add to DOM
-    document.body.appendChild(unlockContainer);
-    
-    // Start the animation sequence
-    setTimeout(() => {
-      unlockContainer.style.opacity = '1';
-      
-      // Show the badge with a popout effect
-      setTimeout(() => {
-        worldBadge.style.transform = 'scale(1)';
-        
-        // Add a highlight flash
-        setTimeout(() => {
-          const flash = document.createElement('div');
-          flash.style.position = 'absolute';
-          flash.style.width = '100%';
-          flash.style.height = '100%';
-          flash.style.borderRadius = '50%';
-          flash.style.backgroundColor = '#FF5500';
-          flash.style.opacity = '0';
-          
-          worldBadge.insertBefore(flash, worldBadge.firstChild);
-          
-          flash.animate([
-            { opacity: 0.7 },
-            { opacity: 0 }
-          ], {
-            duration: 800,
-            easing: 'ease-out'
-          });
-          
-          // Show the message after the badge animation
-          setTimeout(() => {
-            unlockMessage.style.opacity = '1';
-            unlockMessage.style.transform = 'translateY(0)';
-            
-            // Show continue button last
-            setTimeout(() => {
-              continueButton.style.opacity = '1';
-              continueButton.style.transform = 'translateY(0)';
-            }, 500);
-          }, 300);
-        }, 200);
-      }, 400);
-    }, 100);
-  }
-  
+
   // Add loading animation to window for global access
   window.loadingAnimation = loadingAnimation;
   
@@ -478,4 +303,208 @@ export function initializeGame(renderDiv) {
   };
 }
 
-// ... Keep any remaining utility functions ...
+/**
+ * Create animation for world unlock
+ * @param {number} worldNumber - The world number that was unlocked
+ */
+function createWorldUnlockAnimation(worldNumber) {
+  // Create container for the animation
+  const unlockContainer = document.createElement('div');
+  unlockContainer.className = 'world-unlock-animation';
+  unlockContainer.style.position = 'absolute';
+  unlockContainer.style.top = '0';
+  unlockContainer.style.left = '0';
+  unlockContainer.style.width = '100%';
+  unlockContainer.style.height = '100%';
+  unlockContainer.style.display = 'flex';
+  unlockContainer.style.flexDirection = 'column';
+  unlockContainer.style.justifyContent = 'center';
+  unlockContainer.style.alignItems = 'center';
+  unlockContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+  unlockContainer.style.zIndex = '2000';
+  unlockContainer.style.opacity = '0';
+  unlockContainer.style.transition = 'opacity 0.5s ease-in-out';
+  
+  // Animation container for the badge
+  const animationBox = document.createElement('div');
+  animationBox.style.position = 'relative';
+  animationBox.style.width = '200px';
+  animationBox.style.height = '200px';
+  animationBox.style.display = 'flex';
+  animationBox.style.justifyContent = 'center';
+  animationBox.style.alignItems = 'center';
+  
+  // Create the world badge
+  const worldBadge = document.createElement('div');
+  worldBadge.style.width = '150px';
+  worldBadge.style.height = '150px';
+  worldBadge.style.borderRadius = '50%';
+  worldBadge.style.backgroundColor = 'rgba(40, 40, 40, 0.95)';
+  worldBadge.style.border = '4px solid #FF5500';
+  worldBadge.style.display = 'flex';
+  worldBadge.style.flexDirection = 'column';
+  worldBadge.style.justifyContent = 'center';
+  worldBadge.style.alignItems = 'center';
+  worldBadge.style.position = 'relative';
+  worldBadge.style.transform = 'scale(0)';
+  worldBadge.style.transition = 'transform 0.5s cubic-bezier(0.17, 0.89, 0.32, 1.49)';
+  worldBadge.style.boxShadow = '0 0 30px rgba(255, 85, 0, 0.7)';
+  
+  // Create "WORLD" text
+  const worldText = document.createElement('div');
+  worldText.textContent = 'WORLD';
+  worldText.style.color = '#FF5500';
+  worldText.style.fontSize = '24px';
+  worldText.style.fontWeight = 'bold';
+  worldText.style.marginBottom = '5px';
+  
+  // Create number
+  const worldNumElement = document.createElement('div');
+  worldNumElement.textContent = worldNumber.toString();
+  worldNumElement.style.color = '#FFFFFF';
+  worldNumElement.style.fontSize = '60px';
+  worldNumElement.style.fontWeight = 'bold';
+  worldNumElement.style.lineHeight = '1';
+  
+  // Assemble the badge
+  worldBadge.appendChild(worldText);
+  worldBadge.appendChild(worldNumElement);
+  
+  // Create outer glow circles
+  const createGlowCircle = (size, delay, duration) => {
+    const circle = document.createElement('div');
+    circle.style.position = 'absolute';
+    circle.style.width = `${size}px`;
+    circle.style.height = `${size}px`;
+    circle.style.borderRadius = '50%';
+    circle.style.border = '2px solid #FF5500';
+    circle.style.boxShadow = '0 0 15px rgba(255, 85, 0, 0.5)';
+    circle.style.opacity = '0';
+    circle.style.transform = 'scale(0.5)';
+    
+    // Animation for the glow circle
+    const animation = circle.animate([
+      { transform: 'scale(0.5)', opacity: 0.7 },
+      { transform: 'scale(1.5)', opacity: 0 }
+    ], {
+      duration: duration,
+      delay: delay,
+      iterations: Infinity
+    });
+    
+    return circle;
+  };
+  
+  // Add multiple glow circles with different sizes and timings
+  animationBox.appendChild(createGlowCircle(160, 0, 2000));
+  animationBox.appendChild(createGlowCircle(180, 500, 2000));
+  animationBox.appendChild(createGlowCircle(200, 1000, 2000));
+  
+  // Add the badge to the animation box
+  animationBox.appendChild(worldBadge);
+  
+  // Create unlock message
+  const unlockMessage = document.createElement('div');
+  unlockMessage.textContent = 'NEW WORLD UNLOCKED!';
+  unlockMessage.style.color = '#FF5500';
+  unlockMessage.style.fontSize = '28px';
+  unlockMessage.style.fontWeight = 'bold';
+  unlockMessage.style.marginTop = '40px';
+  unlockMessage.style.textAlign = 'center';
+  unlockMessage.style.opacity = '0';
+  unlockMessage.style.transform = 'translateY(20px)';
+  unlockMessage.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+  unlockMessage.style.textShadow = '0 0 10px rgba(255, 85, 0, 0.7)';
+  
+  // Create continue button
+  const continueButton = document.createElement('button');
+  continueButton.textContent = 'CONTINUE';
+  continueButton.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+  continueButton.style.color = '#FF5500';
+  continueButton.style.border = '2px solid #FF5500';
+  continueButton.style.borderRadius = '30px';
+  continueButton.style.padding = '12px 30px';
+  continueButton.style.fontSize = '18px';
+  continueButton.style.fontWeight = 'bold';
+  continueButton.style.marginTop = '30px';
+  continueButton.style.cursor = 'pointer';
+  continueButton.style.opacity = '0';
+  continueButton.style.transform = 'translateY(20px)';
+  continueButton.style.transition = 'opacity 0.5s ease, transform 0.5s ease, background-color 0.2s ease';
+  continueButton.style.boxShadow = '0 0 15px rgba(255, 85, 0, 0.3)';
+  
+  // Add hover effects
+  continueButton.addEventListener('mouseover', () => {
+    continueButton.style.backgroundColor = 'rgba(40, 40, 40, 0.8)';
+    continueButton.style.transform = 'translateY(20px) scale(1.05)';
+    continueButton.style.boxShadow = '0 0 20px rgba(255, 85, 0, 0.5)';
+  });
+  
+  continueButton.addEventListener('mouseout', () => {
+    continueButton.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+    continueButton.style.transform = 'translateY(20px) scale(1)';
+    continueButton.style.boxShadow = '0 0 15px rgba(255, 85, 0, 0.3)';
+  });
+  
+  // Continue button click handler
+  continueButton.addEventListener('click', () => {
+    // Hide the animation with fade out
+    unlockContainer.style.opacity = '0';
+    
+    // Remove after animation completes
+    setTimeout(() => {
+      unlockContainer.remove();
+    }, 500);
+  });
+  
+  // Assemble the animation
+  unlockContainer.appendChild(animationBox);
+  unlockContainer.appendChild(unlockMessage);
+  unlockContainer.appendChild(continueButton);
+  
+  // Add to DOM
+  document.body.appendChild(unlockContainer);
+  
+  // Start the animation sequence
+  setTimeout(() => {
+    unlockContainer.style.opacity = '1';
+    
+    // Show the badge with a popout effect
+    setTimeout(() => {
+      worldBadge.style.transform = 'scale(1)';
+      
+      // Add a highlight flash
+      setTimeout(() => {
+        const flash = document.createElement('div');
+        flash.style.position = 'absolute';
+        flash.style.width = '100%';
+        flash.style.height = '100%';
+        flash.style.borderRadius = '50%';
+        flash.style.backgroundColor = '#FF5500';
+        flash.style.opacity = '0';
+        
+        worldBadge.insertBefore(flash, worldBadge.firstChild);
+        
+        flash.animate([
+          { opacity: 0.7 },
+          { opacity: 0 }
+        ], {
+          duration: 800,
+          easing: 'ease-out'
+        });
+        
+        // Show the message after the badge animation
+        setTimeout(() => {
+          unlockMessage.style.opacity = '1';
+          unlockMessage.style.transform = 'translateY(0)';
+          
+          // Show continue button last
+          setTimeout(() => {
+            continueButton.style.opacity = '1';
+            continueButton.style.transform = 'translateY(0)';
+          }, 500);
+        }, 300);
+      }, 200);
+    }, 400);
+  }, 100);
+}

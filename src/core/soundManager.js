@@ -67,6 +67,9 @@ export class SoundManager {
     
     // Create game over sound
     this.createGameOverSound();
+    
+    // Create world complete celebration sound
+    this.createWorldCompleteSound();
   }
   
   createExplosionSound() {
@@ -174,6 +177,41 @@ export class SoundManager {
     }
     
     this.sounds.gameOver = buffer;
+  }
+  
+  createWorldCompleteSound() {
+    if (!this.audioContext) return;
+    
+    const bufferSize = this.audioContext.sampleRate * 3; // 3 seconds
+    const buffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
+    const data = buffer.getChannelData(0);
+    
+    // Create a celebratory fanfare sound
+    for (let i = 0; i < bufferSize; i++) {
+      const t = i / this.audioContext.sampleRate;
+      
+      // Create ascending victorious tones
+      const baseFreq = 300;
+      const ascend = Math.min(1, t * 2); // Ramp up for 0.5 seconds
+      const freq1 = baseFreq + (ascend * 300);
+      const freq2 = freq1 * 1.25; // Perfect fifth
+      const freq3 = freq1 * 1.5;  // Major third up an octave
+      
+      // Generate tones
+      const tone1 = Math.sin(2 * Math.PI * freq1 * t);
+      const tone2 = Math.sin(2 * Math.PI * freq2 * t);
+      const tone3 = Math.sin(2 * Math.PI * freq3 * t);
+      
+      // Create an envelope
+      const attack = Math.min(1, t * 10); // 0.1s attack
+      const decay = Math.max(0, 1 - ((t - 1.5) * 0.5)); // Decay after 1.5s
+      const envelope = attack * decay;
+      
+      // Combine tones with different weights
+      data[i] = (tone1 * 0.5 + tone2 * 0.3 + tone3 * 0.2) * envelope * 0.5;
+    }
+    
+    this.sounds.worldComplete = buffer;
   }
   
   playSound(soundName, options = {}) {
@@ -311,6 +349,13 @@ export class SoundManager {
   playGameOver() {
     return this.playSound('gameOver', {
       volume: 0.6
+    });
+  }
+  
+  playWorldComplete() {
+    return this.playSound('worldComplete', {
+      volume: 0.8,
+      pitchVariation: 0.0 // No pitch variation for this celebratory sound
     });
   }
   

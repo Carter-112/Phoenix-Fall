@@ -14,6 +14,7 @@ import { world6 } from '../worlds/world6/world6.js';
 
 // Import hazard coordinators for each world
 import { World1HazardCoordinator } from '../worlds/world1/world1HazardCoordinator.js';
+import { World2HazardCoordinator } from '../worlds/world2/world2HazardCoordinator.js';
 import { World3HazardCoordinator } from '../worlds/world3/world3HazardCoordinator.js';
 import { World4HazardCoordinator } from '../worlds/world4/World4HazardCoordinator.js';
 import { World5HazardCoordinator } from '../worlds/world5/world5HazardCoordinator.js';
@@ -45,7 +46,7 @@ export class WorldManager {
     // Map of world-specific hazard coordinators
     this.hazardCoordinators = {
       1: World1HazardCoordinator, // Added World 1 hazard coordinator with UI
-      // World 2 still uses basic hazards only
+      2: World2HazardCoordinator, // Added World 2 hazard coordinator with wall hazards
       3: World3HazardCoordinator,
       4: World4HazardCoordinator,
       5: World5HazardCoordinator,

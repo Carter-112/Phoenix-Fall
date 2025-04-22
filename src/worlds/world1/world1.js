@@ -12,7 +12,9 @@ export const world1 = {
         ambientLight: 0.3,
         difficulty: 1,
         timeToComplete: 120, // seconds
-        requiredProgress: 100 // percent needed to complete
+        requiredProgress: 100, // percent needed to complete
+        spawnEnemies: true,    // Enable enemy spawning
+        spawnHazards: true     // Enable hazard spawning
     },
     
     // Enemy spawn configuration

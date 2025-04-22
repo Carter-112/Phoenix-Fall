@@ -3,8 +3,9 @@ import { FrostEmber } from './frostEmber.js';
 import { InfernalEmber } from './infernalEmber.js';
 
 export class EmberFactory {
-    constructor(worldConfig) {
+    constructor(worldConfig, particleSystem) {
         this.config = worldConfig.collectibles;
+        this.particleSystem = particleSystem || (window.gameInstance ? window.gameInstance.particleSystem : null);
         this.activeEmbers = new Set();
         
         // Track spawn timers for each type
@@ -45,18 +46,18 @@ export class EmberFactory {
 
         switch(type) {
             case 'frostEmber':
-                ember = new FrostEmber(x, y, settings.value);
+                ember = new FrostEmber(x, y, this.particleSystem, settings.value);
                 break;
             case 'infernalEmber':
-                ember = new InfernalEmber(x, y, settings.value);
+                ember = new InfernalEmber(x, y, this.particleSystem, settings.value);
                 break;
             case 'powerEmber':
-                ember = new Ember(x, y, settings.value);
+                ember = new Ember(x, y, this.particleSystem, settings.value);
                 ember.radius = 15; // Larger than regular embers
                 ember.powerEmber = true;
                 break;
             default:
-                ember = new Ember(x, y, settings.value);
+                ember = new Ember(x, y, this.particleSystem, settings.value);
         }
 
         this.activeEmbers.add(ember);

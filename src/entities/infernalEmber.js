@@ -1,8 +1,15 @@
-import { Ember } from 'ember';
+import { Ember } from './ember.js';
 
 export class InfernalEmber extends Ember {
-    constructor(x, y, value = 200) {
-        super(x, y, value);
+    /**
+     * Create a new infernal ember
+     * @param {number} x - X position
+     * @param {number} y - Y position
+     * @param {Object} particleSystem - Particle system for visual effects
+     * @param {number} value - Value of the ember when collected
+     */
+    constructor(x, y, particleSystem, value = 200) {
+        super(x, y, particleSystem, value);
         this.radius = 20; // Largest ember type
         this.pulseSpeed = 0.08;
         this.pulseRange = 0.4;

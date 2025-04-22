@@ -1,4 +1,4 @@
-import { EmberFactory } from 'emberFactory';
+import { EmberFactory } from './emberFactory.js';
 
 export class EmberManager {
     constructor(worldConfig) {

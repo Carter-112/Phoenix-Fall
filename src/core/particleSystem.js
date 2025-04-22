@@ -13,13 +13,24 @@ export class ParticleSystem {
   }
   
   createEmber(x, y) {
-    const life = 0.5 + Math.random() * 1;
-    const size = 3 + Math.random() * 3;
-    const vx = (Math.random() - 0.5) * 20;
-    const vy = (Math.random() - 0.5) * 20;
-    const hue = 20 + Math.random() * 40;
-    const color = `hsl(${hue}, 100%, 60%)`;
-    this.createParticle(x, y, vx, vy, life, color, size);
+    const life = 1.0 + Math.random() * 1.5;
+    const size = 5 + Math.random() * 8;
+    const vx = (Math.random() - 0.5) * 30;
+    const vy = (Math.random() - 0.5) * 30;
+    
+    const colorType = Math.random();
+    let color;
+    
+    if (colorType < 0.6) {
+      const hue = 30 + Math.random() * 25;
+      color = `hsl(${hue}, 100%, 70%)`;
+    } else if (colorType < 0.9) {
+      color = `rgba(255, 255, ${Math.floor(180 + Math.random() * 75)}, 0.9)`;
+    } else {
+      color = `rgba(255, ${Math.floor(100 + Math.random() * 50)}, 50, 0.8)`;
+    }
+    
+    this.createParticle(x, y, vx, vy, life, color, size, 0.9);
   }
   
   createFlame(x, y) {

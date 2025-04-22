@@ -1,31 +1,25 @@
-import { Ember } from 'ember';
-import { FrostEmber } from 'frostEmber';
-import { InfernalEmber } from 'infernalEmber';
+import { Ember } from '../../entities/ember.js';
 
 export class EmberFactory {
     constructor(worldConfig) {
         this.config = worldConfig.collectibles;
         this.activeEmbers = new Set();
         
-        // Track spawn timers for each type
+        // Track spawn timers for only normal embers
         this.spawnTimers = {
-            ember: 0,
-            powerEmber: 0,
-            frostEmber: 0,
-            infernalEmber: 0
+            ember: 0
         };
     }
 
     update(currentTime, width, height) {
-        // Check and spawn each type of ember
-        Object.entries(this.config).forEach(([type, settings]) => {
-            if (currentTime - this.spawnTimers[type] >= settings.spawnRate) {
-                if (this.countEmberType(type) < settings.maxActive) {
-                    this.spawnEmber(type, width, height);
-                }
-                this.spawnTimers[type] = currentTime;
+        // Only check and spawn regular embers
+        const emberSettings = this.config.ember;
+        if (emberSettings && currentTime - this.spawnTimers.ember >= emberSettings.spawnRate) {
+            if (this.countEmbers() < (emberSettings.maxActive || 10)) {
+                this.spawnEmber(width, height);
             }
-        });
+            this.spawnTimers.ember = currentTime;
+        }
 
         // Update all active embers
         this.activeEmbers.forEach(ember => {
@@ -36,41 +30,23 @@ export class EmberFactory {
         });
     }
 
-    spawnEmber(type, width, height) {
+    spawnEmber(width, height) {
         const x = Math.random() * (width - 100) + 50;
         const y = Math.random() * (height - 100) + 50;
         
-        let ember;
-        const settings = this.config[type];
+        const settings = this.config.ember;
+        const value = settings?.value || 10;
+        const particleSystem = window.gameInstance?.particleSystem;
 
-        switch(type) {
-            case 'frostEmber':
-                ember = new FrostEmber(x, y, settings.value);
-                break;
-            case 'infernalEmber':
-                ember = new InfernalEmber(x, y, settings.value);
-                break;
-            case 'powerEmber':
-                ember = new Ember(x, y, settings.value);
-                ember.radius = 15; // Larger than regular embers
-                ember.powerEmber = true;
-                break;
-            default:
-                ember = new Ember(x, y, settings.value);
-        }
-
+        // Only create regular embers
+        const ember = new Ember(x, y, particleSystem, value);
+        
         this.activeEmbers.add(ember);
         return ember;
     }
 
-    countEmberType(type) {
-        return Array.from(this.activeEmbers).filter(ember => {
-            if (type === 'ember') return ember instanceof Ember && !ember.powerEmber;
-            if (type === 'powerEmber') return ember instanceof Ember && ember.powerEmber;
-            if (type === 'frostEmber') return ember instanceof FrostEmber;
-            if (type === 'infernalEmber') return ember instanceof InfernalEmber;
-            return false;
-        }).length;
+    countEmbers() {
+        return this.activeEmbers.size;
     }
 
     draw(ctx) {

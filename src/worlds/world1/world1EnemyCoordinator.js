@@ -3,8 +3,8 @@
  * Manages the spawning and behavior of enemies in World 1 (Ember Valley)
  */
 
-import { MagmaBat } from './magmaBat.js';
-import { FlameHelicopter } from './flameHelicopter.js';
+import { MagmaBat } from '../../entities/magmaBat.js';
+import { FlameHelicopter } from '../../entities/flameHelicopter.js';
 
 export class World1EnemyCoordinator {
   constructor(world1Config) {
@@ -83,9 +83,11 @@ export class World1EnemyCoordinator {
     
     // Randomly choose between MagmaBat (60%) and FlameHelicopter (40%)
     if (Math.random() < 0.6) {
-      game.enemies.push(new MagmaBat(x, y, game.particleSystem));
+      const bat = new MagmaBat(x, y, game.particleSystem);
+      game.enemies.push(bat);
     } else {
-      game.hazards.push(new FlameHelicopter(x, y, game.particleSystem));
+      const helicopter = new FlameHelicopter(x, y, game.particleSystem);
+      game.enemies.push(helicopter);
     }
   }
   
@@ -110,6 +112,12 @@ export class World1EnemyCoordinator {
     }
     
     const bat = new MagmaBat(x, y, particleSystem);
+    
+    // Add the bat to the game's enemies array
+    if (window.gameInstance && window.gameInstance.enemies) {
+      window.gameInstance.enemies.push(bat);
+    }
+    
     return bat;
   }
   
@@ -134,6 +142,12 @@ export class World1EnemyCoordinator {
     }
     
     const helicopter = new FlameHelicopter(x, y, particleSystem);
+    
+    // Add the helicopter to the game's enemies array
+    if (window.gameInstance && window.gameInstance.enemies) {
+      window.gameInstance.enemies.push(helicopter);
+    }
+    
     return helicopter;
   }
   
@@ -156,6 +170,11 @@ export class World1EnemyCoordinator {
         particleSystem
       );
       helicopters.push(helicopter);
+      
+      // Add each helicopter in the formation to the game's enemies array
+      if (window.gameInstance && window.gameInstance.enemies) {
+        window.gameInstance.enemies.push(helicopter);
+      }
     }
     
     return helicopters;

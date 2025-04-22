@@ -29,6 +29,13 @@ export class UniversalUI {
    * @param {number} height - Canvas height
    */
   draw(width, height) {
+    // Check if UI should be disabled for end screens like world complete
+    if (window.universalUIEnabled === false) {
+      return;
+    }
+    
+    this.ctx.save();
+    
     if (!this.game.isRunning || 
         this.gameState.gameOver || 
         this.gameState.worldComplete) {
@@ -94,38 +101,41 @@ export class UniversalUI {
     const healthPercent = this.phoenix ? this.phoenix.getHealthPercent() : 1.0;
     const barSpacing = 10;
     
+    // Ensure we have valid values to prevent rendering errors
+    const safeHealthPercent = isFinite(healthPercent) ? Math.max(0, Math.min(1, healthPercent)) : 1.0;
+    
     // Draw health bar in top left
     this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
     this.roundRect(x, y, width, height, 5, true);
     
     // Draw health bar fill with color based on health percentage
     let healthGradient;
-    if (healthPercent > 0.6) {
+    if (safeHealthPercent > 0.6) {
       // Green to yellow for high health
-      healthGradient = this.ctx.createLinearGradient(x, y, x + width * healthPercent, y);
+      healthGradient = this.ctx.createLinearGradient(x, y, x + (width * safeHealthPercent), y);
       healthGradient.addColorStop(0, '#3CDF3C'); // Green
       healthGradient.addColorStop(1, '#DFD83C'); // Yellow
-    } else if (healthPercent > 0.3) {
+    } else if (safeHealthPercent > 0.3) {
       // Yellow to orange for medium health
-      healthGradient = this.ctx.createLinearGradient(x, y, x + width * healthPercent, y);
+      healthGradient = this.ctx.createLinearGradient(x, y, x + (width * safeHealthPercent), y);
       healthGradient.addColorStop(0, '#DFD83C'); // Yellow
       healthGradient.addColorStop(1, '#DF933C'); // Orange
     } else {
       // Red for low health with pulsing effect
       const pulseIntensity = 0.7 + 0.3 * Math.sin(Date.now() / 200);
-      healthGradient = this.ctx.createLinearGradient(x, y, x + width * healthPercent, y);
+      healthGradient = this.ctx.createLinearGradient(x, y, x + (width * safeHealthPercent || 1), y);
       healthGradient.addColorStop(0, `rgba(223, 44, 44, ${pulseIntensity})`); // Red
       healthGradient.addColorStop(1, `rgba(223, 81, 44, ${pulseIntensity})`); // Lighter red
     }
     
     this.ctx.fillStyle = healthGradient;
-    this.roundRect(x, y, width * healthPercent, height, 5, true);
+    this.roundRect(x, y, width * safeHealthPercent, height, 5, true);
     
     // Health bar text
     this.ctx.fillStyle = 'white';
     this.ctx.font = '12px Arial';
     this.ctx.textAlign = 'center';
-    this.ctx.fillText(`Health: ${Math.round(healthPercent * 100)}%`, x + width / 2, y + height / 2 + 4);
+    this.ctx.fillText(`Health: ${Math.round(safeHealthPercent * 100)}%`, x + width / 2, y + height / 2 + 4);
     
     // Draw level progress bar below health if we have XP data
     if (this.gameState) {
@@ -138,6 +148,9 @@ export class UniversalUI {
         levelProgress = this.gameState.xp / this.gameState.xpToNextLevel;
       }
       
+      // Ensure levelProgress is valid to prevent rendering errors
+      const safeLevelProgress = isFinite(levelProgress) ? Math.max(0, Math.min(1, levelProgress)) : 0;
+      
       // Level bar position
       const levelBarY = y + height + barSpacing;
       
@@ -145,19 +158,24 @@ export class UniversalUI {
       this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
       this.roundRect(x, levelBarY, width, height, 5, true);
       
-      // Level bar fill
-      const levelGradient = this.ctx.createLinearGradient(x, levelBarY, x + width * levelProgress, levelBarY);
-      levelGradient.addColorStop(0, '#00CC33'); // Green
-      levelGradient.addColorStop(1, '#66FF99'); // Lighter green
-      this.ctx.fillStyle = levelGradient;
-      this.roundRect(x, levelBarY, width * levelProgress, height, 5, true);
+      // Level bar fill - use a solid color if progress is near zero to avoid gradient issues
+      if (safeLevelProgress > 0.01) {
+        const levelGradient = this.ctx.createLinearGradient(x, levelBarY, x + (width * safeLevelProgress), levelBarY);
+        levelGradient.addColorStop(0, '#00CC33'); // Green
+        levelGradient.addColorStop(1, '#66FF99'); // Lighter green
+        this.ctx.fillStyle = levelGradient;
+      } else {
+        this.ctx.fillStyle = '#00CC33'; // Solid green for near-zero progress
+      }
+      
+      this.roundRect(x, levelBarY, width * safeLevelProgress, height, 5, true);
       
       // Level bar text
       this.ctx.fillStyle = 'white';
       this.ctx.font = '12px Arial';
       this.ctx.textAlign = 'center';
-      this.ctx.fillText(`Level ${currentLevel}: ${Math.round(levelProgress * 100)}%`, 
-                          x + width / 2, levelBarY + height / 2 + 4);
+      this.ctx.fillText(`Level ${currentLevel}: ${Math.round(safeLevelProgress * 100)}%`, 
+                        x + width / 2, levelBarY + height / 2 + 4);
     }
   }
   

@@ -25,10 +25,20 @@
 import { WorldManager } from '../core/WorldManager.js';
 
 export class UI {
-  constructor(ctx, gameState, phoenix, audioSystem, effectSystem, rankSystem = null) {
-    this.ctx = ctx;
-    this.gameState = gameState;
-    this.phoenix = phoenix;
+  constructor(game) {
+    // Handle being initialized with a game object
+    if (game && game.ctx) {
+      this.ctx = game.ctx;
+      this.gameState = game.gameState;
+      this.phoenix = game.phoenix;
+    } else {
+      console.warn('UI initialized without valid game object or context');
+      // Legacy constructor handling
+      this.ctx = game; // First parameter was context in old code
+      this.gameState = arguments[1];
+      this.phoenix = arguments[2];
+    }
+    
     this.gameOverStartTime = null;
     this.worldCompleteStartTime = null;
     this.buttonPulseTime = 0;
@@ -38,8 +48,9 @@ export class UI {
     // Message display
     this.messages = [];
     
-    // Attach event listener for game over buttons
+    // Attach event listeners for UI buttons
     document.addEventListener('click', (e) => this.handleGameOverClick(e));
+    document.addEventListener('click', (e) => this.handleWorldCompleteClick(e));
   }
   
   /**
@@ -48,16 +59,29 @@ export class UI {
    * @param {number} height - Canvas height
    */
   draw(width, height) {
-    // DISABLED - UI is now handled by UniversalUI
-    if (true) {
+    // Check if canvas context is valid before attempting to draw
+    if (!this.ctx || typeof this.ctx.save !== 'function') {
+      console.warn('UI draw called with invalid canvas context');
+      return;
+    }
+    
+    // If no dimensions provided, don't attempt to draw
+    if (!width || !height) {
+      return;
+    }
+    
+    this.ctx.save();
+    
+    // Don't disable UI for world complete or game over screens
+    const shouldShowEndScreens = this.gameState && (this.gameState.worldComplete || this.gameState.gameOver);
+    
+    if (!shouldShowEndScreens && window.universalUIEnabled) {
       return;
     }
     
     // Only proceed if not disabled
     this.width = width;
     this.height = height;
-    
-    this.ctx.save();
     
     // Always ensure font settings are consistent
     this.ctx.font = '16px Arial';
@@ -279,6 +303,8 @@ export class UI {
         if (window.gameInstance && window.gameInstance.pauseButton) {
           window.gameInstance.pauseButton.hide();
         }
+        
+        console.log("World complete screen displayed - UI handler triggered");
       }
       
       // Calculate fade-in opacity (0 to 1 over 800ms)
@@ -391,7 +417,21 @@ export class UI {
       this.ctx.font = '16px Arial';
       this.ctx.fillText('EXIT TO MENU', width / 2, menuButtonY + 23 * menuPulseFactor);
       
-      // Removed tap instruction text
+      // Store world complete button hitboxes for click handling
+      this.worldCompleteButtons = {
+        continue: {
+          x: buttonX,
+          y: buttonY,
+          width: buttonWidth * pulseFactor,
+          height: buttonHeight * pulseFactor
+        },
+        exitToMenu: {
+          x: menuButtonX,
+          y: menuButtonY,
+          width: menuButtonWidth * menuPulseFactor,
+          height: menuButtonHeight * menuPulseFactor
+        }
+      };
     }
     
     // Always draw messages regardless of game state
@@ -943,6 +983,65 @@ export class UI {
       if (this.audioSystem) {
         this.audioSystem.playSound('button', 0.5);
       }
+      
+      // Return to main menu
+      if (window.gameInstance) {
+        window.gameInstance.exitToMainMenu();
+      }
+    }
+  }
+  
+  // Handle clicks on world complete screen buttons
+  handleWorldCompleteClick(event) {
+    // Only process clicks if world is complete
+    if (!this.gameState || !this.gameState.worldComplete) return;
+    
+    // Convert click position to canvas coordinates
+    const canvasRect = this.ctx.canvas.getBoundingClientRect();
+    const clickX = event.clientX - canvasRect.left;
+    const clickY = event.clientY - canvasRect.top;
+    
+    // Check if continue button was clicked
+    if (this.worldCompleteButtons && 
+        this.worldCompleteButtons.continue &&
+        clickX >= this.worldCompleteButtons.continue.x && 
+        clickX <= this.worldCompleteButtons.continue.x + this.worldCompleteButtons.continue.width &&
+        clickY >= this.worldCompleteButtons.continue.y && 
+        clickY <= this.worldCompleteButtons.continue.y + this.worldCompleteButtons.continue.height) {
+      
+      console.log('Continue button clicked on world complete screen');
+      
+      // Play button sound if available
+      if (this.audioSystem) {
+        this.audioSystem.playSound('button', 0.5);
+      }
+      
+      // Re-enable universal UI
+      window.universalUIEnabled = true;
+      
+      // Return to menu
+      if (window.gameInstance) {
+        window.gameInstance.exitToMainMenu();
+      }
+    }
+    
+    // Check if exit to menu button was clicked
+    if (this.worldCompleteButtons && 
+        this.worldCompleteButtons.exitToMenu &&
+        clickX >= this.worldCompleteButtons.exitToMenu.x && 
+        clickX <= this.worldCompleteButtons.exitToMenu.x + this.worldCompleteButtons.exitToMenu.width &&
+        clickY >= this.worldCompleteButtons.exitToMenu.y && 
+        clickY <= this.worldCompleteButtons.exitToMenu.y + this.worldCompleteButtons.exitToMenu.height) {
+      
+      console.log('Exit to menu button clicked on world complete screen');
+      
+      // Play button sound if available
+      if (this.audioSystem) {
+        this.audioSystem.playSound('button', 0.5);
+      }
+      
+      // Re-enable universal UI
+      window.universalUIEnabled = true;
       
       // Return to main menu
       if (window.gameInstance) {

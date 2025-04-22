@@ -9,10 +9,11 @@ export class FrostEmber extends Ember {
      * Create a new frost ember
      * @param {number} x - X position
      * @param {number} y - Y position
+     * @param {Object} particleSystem - Particle system for visual effects
      * @param {number} value - Value of the ember when collected
      */
-    constructor(x, y, value = 150) {
-        super(x, y, value);
+    constructor(x, y, particleSystem, value = 150) {
+        super(x, y, particleSystem, value);
         this.radius = 15; // Slightly larger than standard ember
         this.pulseSpeed = 0.04;
         this.pulseRange = 0.3;

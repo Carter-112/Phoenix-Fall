@@ -3,6 +3,7 @@
  */
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
 const app = express();
 const port = process.env.PORT || 3000;
 
@@ -25,7 +26,7 @@ app.use(express.static(__dirname, {
   }
 }));
 
-// Explicitly handle favicon.ico requests
+// Explicitly serve favicon from public directory
 app.get('/favicon.ico', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'favicon.ico'));
 });
@@ -37,6 +38,6 @@ app.get('*', (req, res) => {
 
 // Start the server
 app.listen(port, () => {
-  console.log(`Phoenixfall server running at http://localhost:${port}`);
-  console.log(`Press Ctrl+C to stop the server`);
+  console.log(`Server is running on port ${port}`);
+  console.log(`Open http://localhost:${port} in your browser`);
 }); 

@@ -15,6 +15,36 @@ export const world2 = {
         requiredProgress: 100
     },
     
+    // Hazard configuration for World 2
+    hazards: {
+        // Smoke wall hazard
+        smokeWall: {
+            weight: 0.3,       // 30% chance of spawning this hazard
+            width: 200,
+            height: 120,
+            speed: 2,
+            damage: 25,
+            spawnRate: 5000    // 5 seconds between spawns
+        },
+        // Ash cloud hazard
+        ashCloud: {
+            weight: 0.4,       // 40% chance of spawning this hazard
+            size: 150,
+            speed: 1.5,
+            damage: 15,
+            lifespan: 8000     // 8 seconds before disappearing
+        },
+        // Ember storm hazard
+        emberStorm: {
+            weight: 0.3,       // 30% chance of spawning this hazard
+            width: 180,
+            height: 100,
+            speed: 2.5,
+            damage: 20,
+            lifespan: 5000     // 5 seconds before disappearing
+        }
+    },
+    
     // Enemy spawn configuration
     enemies: {
         lavaGolem: { // Only enemy unique to World 2

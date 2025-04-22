@@ -1,8 +1,8 @@
 import { Phoenix } from '../entities/phoenix.js';
 import { ParticleSystem } from './particleSystem.js';
-import { Ember } from '../entities/ember.js';
 import { FlameHelicopter } from '../entities/flameHelicopter.js';
 import { MagmaBat } from '../entities/magmaBat.js';
+import { Ember } from '../entities/ember.js';
 import { UI } from '../ui/ui.js';
 import { GameState } from './gameState.js';
 import { SoundManager } from './soundManager.js';
@@ -11,6 +11,8 @@ import { PauseMenu } from '../ui/pauseMenu.js';
 import { PauseButton } from '../ui/pauseButton.js';
 import { WorldManager } from './WorldManager.js';
 import { UniversalUI } from '../ui/UniversalUI.js';
+import { WallHazard } from '../hazards/wallHazard.js';
+import { ScreenEffects } from '../ui/screenEffects.js';
 
 export class Game {
   constructor(container) {
@@ -49,6 +51,9 @@ export class Game {
     
     // Initialize world manager
     this.worldManager = new WorldManager(this);
+    
+    // Initialize screen effects
+    this.screenEffects = new ScreenEffects(this);
     
     // Initialize pause menu
     this.pauseMenu = new PauseMenu(this);
@@ -158,35 +163,27 @@ export class Game {
       }
       
       // Handle world complete screen buttons
-      if (!this.isRunning && this.gameState.worldComplete) {
-        const containerWidth = Math.min(400, this.width * 0.8);
-        const containerHeight = 320;
-        const containerX = this.width / 2 - containerWidth / 2;
-        const containerY = this.height / 2 - containerHeight / 2;
-        
-        // Continue button dimensions
-        const buttonWidth = Math.min(220, containerWidth * 0.8);
-        const buttonHeight = 40;
-        const buttonX = this.width / 2 - buttonWidth / 2;
-        const buttonY = containerY + containerHeight - 70;
-        
-        // Exit to menu button dimensions
-        const menuButtonWidth = Math.min(180, containerWidth * 0.6);
-        const menuButtonHeight = 35;
-        const menuButtonX = this.width / 2 - menuButtonWidth / 2;
-        const menuButtonY = buttonY + buttonHeight + 15;
+      if (!this.isRunning && this.gameState.worldComplete && this.ui.worldCompleteButtons) {
+        console.log('Checking world complete button clicks');
+        const { continue: continueBtn, exitToMenu } = this.ui.worldCompleteButtons;
         
         // Check if click is on exit to menu button
-        if (mouseX >= menuButtonX && mouseX <= menuButtonX + menuButtonWidth &&
-            mouseY >= menuButtonY && mouseY <= menuButtonY + menuButtonHeight) {
-          // Exit to menu
-          this.exitToMenu();
+        if (mouseX >= exitToMenu.x && mouseX <= exitToMenu.x + exitToMenu.width &&
+            mouseY >= exitToMenu.y && mouseY <= exitToMenu.y + exitToMenu.height) {
+          console.log('Exit to menu button clicked');
+          // Force full page reload instead of just returning to menu
+          window.location.reload();
           return;
         }
         
-        // Otherwise continue to next level (default behavior)
-        // This could be expanded later to implement actual level progression
-        this.restart();
+        // Check if click is on continue button
+        if (mouseX >= continueBtn.x && mouseX <= continueBtn.x + continueBtn.width &&
+            mouseY >= continueBtn.y && mouseY <= continueBtn.y + continueBtn.height) {
+          console.log('Continue button clicked');
+          // Force full page reload to restart with the next world
+          window.location.reload();
+          return;
+        }
       }
     });
   }
@@ -216,51 +213,67 @@ export class Game {
   }
   
   start() {
+    if (this.isRunning) return;
+    
+    console.log('Starting game...');
     this.isRunning = true;
-    this.lastTimestamp = 0;
+    this.isPaused = false;
+    this.gameState.paused = false;
     
-    // Explicitly reset the game level to 1 when starting a new game
-    this.gameState.level = 1;
+    console.log('Debug: Game state is', this.gameState);
+    this.gameState.reset();
     
-    // Explicitly reset XP to 0 when starting a new game
-    this.gameState.xp = 0;
+    // Reset phoenix
+    this.resetLevel();
     
-    // Also reset the XP needed for next level
-    this.gameState.xpToNextLevel = 100;
-    
-    console.log('Game started: Level reset to', this.gameState.level, 'and XP reset to', this.gameState.xp);
-    
-    // Ensure UI is updated with the reset level and XP
-    if (this.ui && typeof this.ui.updateLevelDisplay === 'function') {
-      this.ui.updateLevelDisplay(1, 0);
+    // Clear any existing animation frame
+    if (this.animationFrame) {
+      cancelAnimationFrame(this.animationFrame);
+    }
+    if (this.animationFrameId) {
+      window.cancelAnimationFrame(this.animationFrameId);
     }
     
-    // Hide any existing menu/UI elements that should be hidden during gameplay
+    // Set up the game loop
+    this.lastFrameTime = null;
+    this.animationFrame = requestAnimationFrame((timestamp) => this.gameLoop(timestamp));
+    this.animationFrameId = this.animationFrame; // Keep both variables in sync
+    
+    // Hide menu UI elements
     this.hideMenuUIElements();
     
-    // Start ambient gameplay sound
-    this.soundManager.playGameplayLoop();
-    
-    // Create pause menu if it doesn't already exist
-    if (this.pauseMenu && !this.pauseMenu.menuElement) {
-      this.pauseMenu.setupBackButtonHandling();
+    // Show UI elements if the method exists
+    if (this.ui) {
+      if (typeof this.ui.showGameElements === 'function') {
+        this.ui.showGameElements();
+      } else {
+        // Fallback for older UI implementations
+        console.log('UI.showGameElements not available - using fallback method');
+        if (typeof this.ui.draw === 'function') {
+          this.ui.draw(window.innerWidth, window.innerHeight);
+        }
+      }
     }
     
-    // Show pause button when game starts
+    // Start gameplay music if available and the method exists
+    if (this.soundManager) {
+      if (typeof this.soundManager.startGameplayLoop === 'function') {
+        this.soundManager.startGameplayLoop();
+      } else if (typeof this.soundManager.playGameplayLoop === 'function') {
+        // Fallback to playGameplayLoop if available
+        console.log('soundManager.startGameplayLoop not available - using playGameplayLoop instead');
+        this.soundManager.playGameplayLoop();
+      } else {
+        console.log('No suitable gameplay audio method found in soundManager');
+      }
+    }
+    
+    // Show the pause button if it exists
     if (this.pauseButton) {
       this.pauseButton.show();
     }
     
-    // Hide settings button when game starts
-    const settingsButton = document.querySelector('.settings-button');
-    if (settingsButton) {
-      settingsButton.style.opacity = '0';
-      setTimeout(() => {
-        settingsButton.style.display = 'none';
-      }, 500);
-    }
-    
-    requestAnimationFrame((timestamp) => this.gameLoop(timestamp));
+    console.log('Game started');
   }
   
   // Helper method to hide menu UI elements
@@ -368,32 +381,47 @@ export class Game {
   }
   
   spawnEmber() {
-    // Check if current world has collectibles configuration
-    const currentWorld = this.worldManager?.getCurrentWorld();
-    const collectibles = currentWorld?.collectibles || {};
-
-    // Spawn embers from the top of the screen
-    const x = Math.random() * this.width;
-    const y = -50;
-    
-    // Determine which type of ember to spawn based on world config
-    if (collectibles.powerEmber && Math.random() < 0.2) {
-      // Spawn power ember (need to implement PowerEmber class)
-      this.embers.push(new Ember(x, y, this.particleSystem, 'power'));
-    } else if (collectibles.solarEmber && Math.random() < 0.1) {
-      // Spawn solar ember (need to implement SolarEmber class)
-      this.embers.push(new Ember(x, y, this.particleSystem, 'solar'));
-    } else {
-      // Default regular ember
-      this.embers.push(new Ember(x, y, this.particleSystem));
+    // Check if game is still active
+    if (!this.isRunning || this.gameState.gameOver || this.gameState.worldComplete) {
+      return null; // Don't spawn embers if game is not actively running
     }
+
+    // Make sure we have a valid particle system before proceeding
+    if (!this.particleSystem) {
+      console.warn('Attempted to spawn ember but particleSystem is not initialized');
+      return null;
+    }
+    
+    // Calculate a random position within screen bounds
+    const padding = 50;
+    const x = padding + Math.random() * (this.width - padding * 2);
+    const y = -50; // Start above the screen
+    
+    // Create a different ember based on world
+    let ember = null;
+    
+    try {
+      // Get the current world to determine which ember to create
+      const worldNumber = this.worldManager ? this.worldManager.getCurrentWorldNumber() : 1;
+      
+      // Create a standard ember if world-specific embers aren't available
+      const EmberClass = this.worldManager?.getCurrentWorld()?.EmberClass || Ember;
+      
+      // Create ember with the particle system for visual effects
+      ember = new EmberClass(x, y, this.particleSystem, 10);
+      
+      // Add to embers array
+      if (ember) {
+        this.embers.push(ember);
+      }
+    } catch (error) {
+      console.error('Error creating ember:', error);
+    }
+    
+    return ember;
   }
   
   spawnHazard() {
-    // Get current world configuration
-    const currentWorld = this.worldManager?.getCurrentWorld();
-    const worldNum = this.worldManager?.getCurrentWorldNumber() || 1;
-    
     // Determine spawn position
     let x, y;
     
@@ -413,93 +441,11 @@ export class Game {
       return;
     }
     
-    // Fallback based on world number if coordinator not available
-    switch(worldNum) {
-      case 2:
-        // World 2: AshCloud and LavaRock
-        if (Math.random() < 0.5) {
-          if (typeof AshCloud !== 'undefined') {
-            this.hazards.push(new AshCloud(x, y, this.particleSystem));
-          }
-        } else {
-          if (typeof LavaRock !== 'undefined') {
-            this.hazards.push(new LavaRock(x, y, this.particleSystem));
-          }
-        }
-        break;
-      case 3:
-        // World 3: Frost hazards
-        if (Math.random() < 0.5) {
-          if (typeof IceShard !== 'undefined') {
-            this.hazards.push(new IceShard(x, y, this.particleSystem));
-          }
-        } else {
-          if (typeof FrostCloud !== 'undefined') {
-            this.hazards.push(new FrostCloud(x, y, this.particleSystem));
-          }
-        }
-        break;
-      case 4:
-        // World 4: Void/Celestial hazards
-        if (Math.random() < 0.5) {
-          if (typeof VoidTornado !== 'undefined') {
-            this.hazards.push(new VoidTornado(x, y, this.particleSystem));
-          }
-        } else {
-          if (typeof AstralDebris !== 'undefined') {
-            this.hazards.push(new AstralDebris(x, y, this.particleSystem));
-          }
-        }
-        break;
-      case 5:
-        // World 5: Infernal hazards
-        if (Math.random() < 0.5) {
-          if (typeof HellPortal !== 'undefined') {
-            this.hazards.push(new HellPortal(x, y, this.particleSystem));
-          }
-        } else {
-          if (typeof DemonHand !== 'undefined') {
-            this.hazards.push(new DemonHand(x, y, this.particleSystem));
-          }
-        }
-        break;
-      case 6:
-        // World 6: Solar hazards
-        const rand = Math.random();
-        if (rand < 0.33) {
-          if (typeof SolarFlare !== 'undefined') {
-            this.hazards.push(new SolarFlare(x, y, this.particleSystem));
-          }
-        } else if (rand < 0.66) {
-          if (typeof GravityWell !== 'undefined') {
-            this.hazards.push(new GravityWell(x, y, this.particleSystem));
-          }
-        } else {
-          if (typeof SunPulse !== 'undefined') {
-            this.hazards.push(new SunPulse(x, y, this.particleSystem));
-          }
-        }
-        break;
-      default:
-        // World 1: Default to FlameHelicopter and LavaBurst
-        if (Math.random() < 0.6) {
-          this.hazards.push(new FlameHelicopter(x, y, this.particleSystem));
-        } else {
-          if (typeof LavaBurst !== 'undefined') {
-            this.hazards.push(new LavaBurst(x, y, this.particleSystem));
-          } else {
-            // Fallback to FlameHelicopter if LavaBurst is not defined
-            this.hazards.push(new FlameHelicopter(x, y, this.particleSystem));
-          }
-        }
-    }
+    // Fallback - just spawn FlameHelicopter
+    this.hazards.push(new FlameHelicopter(x, y, this.particleSystem));
   }
   
   spawnEnemy() {
-    // Get current world configuration
-    const currentWorld = this.worldManager?.getCurrentWorld();
-    const worldNum = this.worldManager?.getCurrentWorldNumber() || 1;
-    
     // Determine spawn position
     let x, y;
     
@@ -517,10 +463,18 @@ export class Game {
     if (this.worldManager && this.worldManager.getCurrentEnemyCoordinator()) {
       const coordinator = this.worldManager.getCurrentEnemyCoordinator();
       coordinator.spawnEnemy(x, y, this);
+    } else {
+      // Fallback - spawn MagmaBat
+      this.enemies.push(new MagmaBat(x, y, this.particleSystem));
     }
   }
   
   update(deltaTime) {
+    // Don't update if the world is complete or game is over
+    if (this.gameState.worldComplete || this.gameState.gameOver) {
+      return;
+    }
+    
     // Check immediately if the phoenix has no health or game is over - don't continue updates
     if (this.phoenix.health <= 0 || this.gameState.gameOver) {
       if (!this.gameState.gameOver) {
@@ -536,10 +490,15 @@ export class Game {
     this.phoenix.update(deltaTime);
     this.particleSystem.update(deltaTime);
     
-    // Spawn embers
-    if (Date.now() - this.lastEmberTime > 1000) {
-      this.spawnEmber();
+    // Only spawn embers if the game is actually running and the player is in a world
+    if (this.isRunning && !this.gameState.paused && Date.now() - this.lastEmberTime > 300) {
+      // Spawn multiple embers at once (3-7)
+      const emberCount = Math.floor(Math.random() * 5) + 3; // 3-7 embers
+      for (let i = 0; i < emberCount; i++) {
+        this.spawnEmber();
+      }
       this.lastEmberTime = Date.now();
+      console.log(`Spawned ${emberCount} embers. Total: ${this.embers.length}`);
     }
     
     // Spawn hazards (flame helicopters) - less frequent but more challenging
@@ -564,6 +523,13 @@ export class Game {
       this.lastHazardTime = Date.now();
     }
     
+    // Spawn enemies - magma bats, etc.
+    const enemyInterval = 2000 - Math.min(1000, this.gameState.survivalTime * 5);
+    if (Date.now() - this.lastEnemyTime > enemyInterval) {
+      this.spawnEnemy();
+      this.lastEnemyTime = Date.now();
+    }
+    
     // Update world manager for enemy spawning
     if (this.worldManager) {
       this.worldManager.update(deltaTime);
@@ -572,6 +538,12 @@ export class Game {
     // Update and check collisions with embers
     for (let i = this.embers.length - 1; i >= 0; i--) {
       const ember = this.embers[i];
+      if (!ember) {
+        this.embers.splice(i, 1);
+        continue;
+      }
+      
+      // Make sure update is called with deltaTime
       ember.update(deltaTime);
       
       // Check if phoenix collected ember
@@ -579,13 +551,17 @@ export class Game {
       const dy = this.phoenix.y - ember.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
       
-      if (distance < 40) { // Collection radius
-        this.gameState.addXP(10);
+      // Increase collection radius for better gameplay
+      const collectionRadius = 60; // Increased from 40
+      
+      if (distance < collectionRadius) { // Larger collection radius
+        this.gameState.addXP(ember.value || 10);
         this.embers.splice(i, 1);
         
         // Play ember collection sound
         this.soundManager.playEmberCollect();
-      } else if (ember.y > this.height + 100) {
+      } else if (ember.y > this.height + 100 || ember.x < -100 || ember.x > this.width + 100) {
+        // Remove ember if it's off-screen
         this.embers.splice(i, 1);
       }
     }
@@ -594,7 +570,13 @@ export class Game {
     for (let i = this.hazards.length - 1; i >= 0; i--) {
       const hazard = this.hazards[i];
       
-      // Update target position if in charge mode
+      // Skip inactive hazards
+      if (!hazard.active) {
+        this.hazards.splice(i, 1);
+        continue;
+      }
+      
+      // Update target position if in charge mode (for FlameHelicopter)
       if (hazard.chargeMode) {
         hazard.targetX = this.phoenix.x;
         hazard.targetY = this.phoenix.y;
@@ -602,110 +584,146 @@ export class Game {
       
       hazard.update(deltaTime);
       
-      // Check collision with phoenix
-      const dx = this.phoenix.x - hazard.x;
-      const dy = this.phoenix.y - hazard.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
+      // Different collision detection based on hazard type
+      let collision = false;
       
-      // Check for near-miss (between 1.5x and 2.5x collision distance)
-      const nearMissDistance = hazard.size / 2 + 50;
-      if (distance > hazard.size / 2 + 20 && distance < nearMissDistance) {
-        this.phoenix.triggerNearMiss();
-      }
-      
-      if (distance < hazard.size / 2 + 20) { // Collision
-        // Trigger phoenix damage animation and check if it died
-        const phoenixDied = this.phoenix.takeDamage();
+      if (hazard instanceof WallHazard) {
+        // Use the WallHazard's own collision detection
+        collision = hazard.checkCollision(this.phoenix);
         
-        // Trigger screen shake for the hit
-        this.triggerScreenShake(0.5, 0.8);
-        
-        // Check if phoenix died (health reached zero)
-        if (phoenixDied) {
-          this.gameState.gameOver = true;
-          this.isRunning = false;
-          this.triggerScreenShake(0.8, 1.5); // Stronger shake when player dies
-          this.ui.gameOverStartTime = Date.now(); // Reset the game over animation timer
+        if (collision) {
+          // Trigger phoenix damage animation and check if it died
+          const phoenixDied = this.phoenix.takeDamage(hazard.damage);
           
-          // Play game over sound
-          this.soundManager.stopGameplayLoop();
-          this.soundManager.playGameOver();
-        }
-      } else if (hazard.y > this.height + 100) {
-        this.hazards.splice(i, 1);
-      }
-      
-      // Check if phoenix flame trail hits helicopter
-      let flameHit = false;
-      if (this.phoenix.trailPoints.length > 3) {
-        let inHeatRadius = false;
-        // Check only recent trail points (more recent = more damage)
-        for (let j = 0; j < Math.min(10, this.phoenix.trailPoints.length); j++) {
-          const point = this.phoenix.trailPoints[j];
+          // Trigger screen shake for the hit
+          this.triggerScreenShake(0.5, 0.8);
           
-          // Check if hazard is in heat radius of this trail point
-          if (this.phoenix.isPointInHeatRadius(hazard.x, hazard.y, point)) {
-            // Set burning effect based on how close to phoenix
-            const burnIntensity = 1 - (j / 10); // More intense for points closer to phoenix
+          // Check if phoenix died (health reached zero)
+          if (phoenixDied) {
+            this.gameState.gameOver = true;
+            this.isRunning = false;
+            this.triggerScreenShake(0.8, 1.5); // Stronger shake when player dies
+            this.ui.gameOverStartTime = Date.now(); // Reset the game over animation timer
             
-            // Set burning if not already burning or extend/intensify if closer to phoenix
-            if (!hazard.burning || burnIntensity > hazard.burnIntensity) {
-              hazard.setBurning(3 + burnIntensity * 2, 0.5 + burnIntensity * 0.5);
+            // Play game over sound
+            this.soundManager.stopGameplayLoop();
+            this.soundManager.playGameOver();
+          }
+        }
+      } else {
+        // Default circular collision detection for other hazards
+        const dx = this.phoenix.x - hazard.x;
+        const dy = this.phoenix.y - hazard.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        // Check for near-miss (between 1.5x and 2.5x collision distance)
+        const nearMissDistance = hazard.size / 2 + 50;
+        if (distance > hazard.size / 2 + 20 && distance < nearMissDistance) {
+          this.phoenix.triggerNearMiss();
+        }
+        
+        if (distance < hazard.size / 2 + 20) { // Collision
+          collision = true;
+          
+          // Trigger phoenix damage animation and check if it died
+          const phoenixDied = this.phoenix.takeDamage();
+          
+          // Trigger screen shake for the hit
+          this.triggerScreenShake(0.5, 0.8);
+          
+          // Check if phoenix died (health reached zero)
+          if (phoenixDied) {
+            this.gameState.gameOver = true;
+            this.isRunning = false;
+            this.triggerScreenShake(0.8, 1.5); // Stronger shake when player dies
+            this.ui.gameOverStartTime = Date.now(); // Reset the game over animation timer
+            
+            // Play game over sound
+            this.soundManager.stopGameplayLoop();
+            this.soundManager.playGameOver();
+          }
+        } 
+      }
+      
+      // Remove hazard if it's off-screen
+      if (hazard.y > this.height + 100 || (!hazard.active)) {
+        this.hazards.splice(i, 1);
+        continue;
+      }
+      
+      // Check if phoenix flame trail hits hazard (only for destroyable hazards)
+      if (hazard.health !== undefined) {
+        let flameHit = false;
+        if (this.phoenix.trailPoints.length > 3) {
+          let inHeatRadius = false;
+          // Check only recent trail points (more recent = more damage)
+          for (let j = 0; j < Math.min(10, this.phoenix.trailPoints.length); j++) {
+            const point = this.phoenix.trailPoints[j];
+            
+            // Check if hazard is in heat radius of this trail point
+            if (this.phoenix.isPointInHeatRadius(hazard.x, hazard.y, point)) {
+              // Set burning effect based on how close to phoenix
+              const burnIntensity = 1 - (j / 10); // More intense for points closer to phoenix
+              
+              // Set burning if not already burning or extend/intensify if closer to phoenix
+              if (!hazard.burning || burnIntensity > hazard.burnIntensity) {
+                hazard.setBurning(3 + burnIntensity * 2, 0.5 + burnIntensity * 0.5);
+              }
+              
+              inHeatRadius = true;
             }
             
-            inHeatRadius = true;
+            const trailDx = point.x - hazard.x;
+            const trailDy = point.y - hazard.y;
+            const trailDistance = Math.sqrt(trailDx * trailDx + trailDy * trailDy);
+            
+            // Direct trail hit does immediate damage
+            if (trailDistance < hazard.size / 2) {
+              flameHit = true;
+              break;
+            }
           }
+        }
+        
+        if (flameHit) {
+          const defeated = hazard.takeDamage();
           
-          const trailDx = point.x - hazard.x;
-          const trailDy = point.y - hazard.y;
-          const trailDistance = Math.sqrt(trailDx * trailDx + trailDy * trailDy);
+          // Play hit sound regardless of whether helicopter is defeated
+          this.soundManager.playHelicopterHit();
           
-          // Direct trail hit does immediate damage
-          if (trailDistance < hazard.size / 2) {
-            flameHit = true;
-            break;
+          if (defeated) {
+            // Helicopter defeated - drop XP and remove
+            this.gameState.addXP(20);
+            
+            // Play explosion sound
+            this.soundManager.playExplosion(hazard.size / 40);
+            
+            // Activate screen shake effect
+            this.triggerScreenShake(0.4, 0.5); // moderate intensity and duration
+            
+            // Spawn embers at hazard position
+            for (let j = 0; j < 5; j++) {
+              const emberX = hazard.x + (Math.random() - 0.5) * 30;
+              const emberY = hazard.y + (Math.random() - 0.5) * 30;
+              this.createEmberAt(emberX, emberY, 10);
+            }
+            
+            // Add extra explosion particles
+            for (let j = 0; j < 15; j++) {
+              this.particleSystem.createEmber(
+                hazard.x + (Math.random() - 0.5) * 40, 
+                hazard.y + (Math.random() - 0.5) * 40
+              );
+            }
+            
+            this.hazards.splice(i, 1);
           }
         }
       }
       
-      if (flameHit) {
-        const defeated = hazard.takeDamage();
-        
-        // Play hit sound regardless of whether helicopter is defeated
-        this.soundManager.playHelicopterHit();
-        
-        if (defeated) {
-          // Helicopter defeated - drop XP and remove
-          this.gameState.addXP(20);
-          
-          // Play explosion sound
-          this.soundManager.playExplosion(hazard.size / 40);
-          
-          // Activate screen shake effect
-          this.triggerScreenShake(0.4, 0.5); // moderate intensity and duration
-          
-          // Spawn embers at helicopter position
-          for (let j = 0; j < 5; j++) {
-            const emberX = hazard.x + (Math.random() - 0.5) * 30;
-            const emberY = hazard.y + (Math.random() - 0.5) * 30;
-            this.embers.push(new Ember(emberX, emberY, this.particleSystem));
-          }
-          
-          // Add extra explosion particles
-          for (let j = 0; j < 15; j++) {
-            this.particleSystem.createEmber(
-              hazard.x + (Math.random() - 0.5) * 40, 
-              hazard.y + (Math.random() - 0.5) * 40
-            );
-          }
-          
-          this.hazards.splice(i, 1);
-        }
-      }
-      
-      // Check if helicopter died from burning damage
-      if (hazard.health <= 0) {
-        // Helicopter defeated - drop XP and remove
+      // Check if hazard died from burning damage
+      if (hazard.health !== undefined && hazard.health <= 0) {
+        // Hazard defeated - drop XP and remove
         this.gameState.addXP(20);
         
         // Play explosion sound
@@ -714,11 +732,11 @@ export class Game {
         // Activate screen shake effect
         this.triggerScreenShake(0.4, 0.5); // moderate intensity and duration
         
-        // Spawn embers at helicopter position
+        // Spawn embers at hazard position
         for (let j = 0; j < 5; j++) {
           const emberX = hazard.x + (Math.random() - 0.5) * 30;
           const emberY = hazard.y + (Math.random() - 0.5) * 30;
-          this.embers.push(new Ember(emberX, emberY, this.particleSystem));
+          this.createEmberAt(emberX, emberY, 10);
         }
         
         // Add extra explosion particles
@@ -828,7 +846,7 @@ export class Game {
           for (let j = 0; j < 3; j++) {
             const emberX = enemy.x + (Math.random() - 0.5) * 20;
             const emberY = enemy.y + (Math.random() - 0.5) * 20;
-            this.embers.push(new Ember(emberX, emberY, this.particleSystem));
+            this.createEmberAt(emberX, emberY, 10);
           }
           
           this.enemies.splice(i, 1);
@@ -850,7 +868,7 @@ export class Game {
         for (let j = 0; j < 3; j++) {
           const emberX = enemy.x + (Math.random() - 0.5) * 20;
           const emberY = enemy.y + (Math.random() - 0.5) * 20;
-          this.embers.push(new Ember(emberX, emberY, this.particleSystem));
+          this.createEmberAt(emberX, emberY, 10);
         }
         
         this.enemies.splice(i, 1);
@@ -878,10 +896,32 @@ export class Game {
     
     // Check world completion based on time
     if (this.gameState.survivalTime >= this.gameState.getTotalLevelTime()) {
-      this.gameState.completeWorld();
-      this.soundManager.stopGameplayLoop();
-      this.ui.worldCompleteStartTime = Date.now(); // Reset the world complete animation timer
-      
+      // Only mark as complete if not already marked
+      if (!this.gameState.worldComplete) {
+        console.log(`World ${this.getCurrentWorld()} completed: survival time (${this.gameState.survivalTime.toFixed(2)}) >= total level time (${this.gameState.getTotalLevelTime()})`);
+        
+        // Complete the world in gameState and save progress
+        this.gameState.completeWorld();
+        
+        // Stop all audio loops
+        if (this.soundManager) {
+          this.soundManager.stopGameplayLoop();
+          this.soundManager.playWorldComplete();
+        }
+        
+        // Reset UI timers for the world complete animation
+        if (this.ui) {
+          this.ui.worldCompleteStartTime = Date.now();
+        }
+        
+        // Stop the game loop from continuing to update
+        this.isRunning = false;
+        
+        // Disable the callback system from main.js that would auto-return to menu
+        this.worldCompleteCallback = null;
+        
+        console.log("WORLD COMPLETE! Showing completion screen. Game has been frozen.");
+        
         // Add XP to the global rank system when world is completed
         if (window.rankSystem) {
           // Add more XP for completing a world than for game over
@@ -892,13 +932,35 @@ export class Game {
           window.rankSystem.addXP(rankXP, false);
           window.rankSystem.saveRankData(); // Explicitly save rank data
         }
-      
-      // Call the world complete callback if it exists
-      if (this.worldCompleteCallback) {
-        // Small delay to allow effects to play before showing menu
-        setTimeout(() => {
-          this.worldCompleteCallback();
-        }, 2000);
+        
+        // Force universal UI to be disabled temporarily to show our completion screen
+        window.universalUIEnabled = false;
+        
+        // Hide pause button when world is complete
+        if (this.pauseButton) {
+          this.pauseButton.hide();
+        }
+        
+        // Make sure world progression is saved even though we're not using the callback
+        if (window.worldProgressionSystem) {
+          const currentWorld = this.getCurrentWorld();
+          window.worldProgressionSystem.completeWorld(currentWorld);
+        }
+        
+        // Render one final frame to show the completion screen
+        this.render();
+        
+        // Cancel any pending animation frame to truly stop the game loop
+        if (this.animationFrameId) {
+          window.cancelAnimationFrame(this.animationFrameId);
+          this.animationFrameId = null;
+        }
+        
+        // Also check the alternative animation frame variable
+        if (this.animationFrame) {
+          cancelAnimationFrame(this.animationFrame);
+          this.animationFrame = null;
+        }
       }
     }
     
@@ -1081,7 +1143,7 @@ export class Game {
           for (let j = 0; j < 3; j++) {
             const emberX = enemy.x + (Math.random() - 0.5) * 20;
             const emberY = enemy.y + (Math.random() - 0.5) * 20;
-            this.embers.push(new Ember(emberX, emberY, this.particleSystem));
+            this.createEmberAt(emberX, emberY, 10);
           }
           
           this.enemies.splice(i, 1);
@@ -1091,7 +1153,10 @@ export class Game {
   }
   
   triggerFlashEffect() {
-    // Flash effect removed
+    // Use screen effects for flash
+    if (this.screenEffects) {
+      this.screenEffects.triggerFlash('white', 0.7, 0.3);
+    }
   }
   
   /**
@@ -1135,36 +1200,67 @@ export class Game {
       this.worldManager.draw(this.ctx, this.width, this.height);
     }
     
-    // Draw embers
-    this.embers.forEach(ember => ember.draw(this.ctx));
+    // Only draw game objects if not in world complete state
+    if (!this.gameState.worldComplete) {
+      // Draw hazards
+      this.hazards.forEach(hazard => {
+        if (hazard && typeof hazard.draw === 'function') {
+          hazard.draw(this.ctx);
+        }
+      });
+      
+      // Draw enemies
+      this.enemies.forEach(enemy => {
+        if (enemy && typeof enemy.draw === 'function') {
+          enemy.draw(this.ctx);
+        }
+      });
+      
+      // Draw phoenix
+      if (this.phoenix && typeof this.phoenix.draw === 'function') {
+        this.phoenix.draw(this.ctx);
+      }
+      
+      // Draw particle effects
+      if (this.particleSystem && typeof this.particleSystem.draw === 'function') {
+        this.particleSystem.draw(this.ctx);
+      }
+    }
     
-    // Draw hazards
-    this.hazards.forEach(hazard => hazard.draw(this.ctx));
-    
-    // Draw enemies
-    this.enemies.forEach(enemy => enemy.draw(this.ctx));
-    
-    // Draw phoenix
-    this.phoenix.draw(this.ctx);
+    // Draw embers - moved here to ensure they're drawn on top of everything else
+    this.embers.forEach(ember => {
+      if (ember && typeof ember.draw === 'function') {
+        ember.draw(this.ctx);
+      }
+    });
     
     // Reset transform if screen shake was applied
     if (this.screenShake.active) {
       this.ctx.restore();
     }
     
+    // Draw screen effects
+    if (this.screenEffects) {
+      this.screenEffects.draw();
+    }
+    
     // Draw UI
-    this.ui.draw(this.width, this.height);
+    if (this.ui && typeof this.ui.draw === 'function') {
+      this.ui.draw(this.width, this.height);
+    }
     
     // Draw universal UI elements (always visible)
-    if (this.universalUI) {
+    if (this.universalUI && typeof this.universalUI.draw === 'function') {
       this.universalUI.draw(this.width, this.height);
     }
     
     // Draw XP notifications
-    this.xpNotification.draw(this.ctx);
+    if (this.xpNotification && typeof this.xpNotification.draw === 'function') {
+      this.xpNotification.draw(this.ctx);
+    }
     
     // Draw pause menu if game is paused
-    if (this.pauseMenu && this.pauseMenu.isPaused) {
+    if (this.pauseMenu && this.pauseMenu.isPaused && typeof this.pauseMenu.draw === 'function') {
       this.pauseMenu.draw(this.ctx, this.width, this.height);
     }
   }
@@ -1228,33 +1324,59 @@ export class Game {
   }
   
   gameLoop(timestamp) {
-    if (this.lastTimestamp === 0) {
-      this.lastTimestamp = timestamp;
+    // Calculate delta time (time since last frame)
+    const now = timestamp;
+    if (!this.lastFrameTime) this.lastFrameTime = now;
+    let deltaTime = (now - this.lastFrameTime) / 1000; // Convert to seconds
+    
+    // Cap deltaTime to avoid huge jumps if browser tab was inactive
+    deltaTime = Math.min(deltaTime, 0.1);
+    this.lastFrameTime = now;
+    
+    // Ensure the game state is valid before proceeding
+    if (!this.gameState) {
+      console.warn('Game state is undefined in gameLoop');
+      this.animationFrame = requestAnimationFrame(this.gameLoop.bind(this));
+      this.animationFrameId = this.animationFrame; // Keep both variables in sync
+      return;
     }
     
-    // Check if the game is paused via the pause menu
-    const isPaused = this.pauseMenu && this.pauseMenu.isPaused;
-    
-    // Only update the timestamp and calculate deltaTime if the game is not paused
-    let deltaTime = 0;
-    if (!isPaused) {
-      deltaTime = (timestamp - this.lastTimestamp) / 1000;
-      this.lastTimestamp = timestamp;
-    }
-    
-    // Only update game state if the game is running AND not paused
-    if (this.isRunning && !isPaused) {
-      // Log the current level periodically during gameplay
-      if (Math.floor(timestamp/1000) % 5 === 0) { // Log every ~5 seconds
-        console.log(`Current game level: ${this.gameState.level}`);
+    // Check for world completion or game over first
+    if (this.gameState.worldComplete || this.gameState.gameOver) {
+      // Render one final frame to show the completion screen
+      this.render();
+      
+      // Stop the game loop if complete and we have an animation frame
+      if (this.animationFrame) {
+        cancelAnimationFrame(this.animationFrame);
+        this.animationFrame = null;
+        this.animationFrameId = null;
+        console.log("Game loop stopped due to world completion or game over");
       }
-      this.update(deltaTime);
+      return;
     }
     
-    // Always render, even when paused (to show the pause menu)
+    // Only update game logic if game is not paused
+    if (!this.gameState.paused) {
+      this.update(deltaTime);
+      
+      // Check if the world was completed during this update
+      if (this.gameState.worldComplete || this.gameState.gameOver) {
+        // Render one final frame with the completion state
+        this.render();
+        return;
+      }
+    }
+    
+    // Always render a frame
     this.render();
     
-    requestAnimationFrame((timestamp) => this.gameLoop(timestamp));
+    // Only request next frame if we're still rendering and not paused
+    // and not world complete
+    if (!this.gameState.paused && !this.gameState.worldComplete && !this.gameState.gameOver) {
+      this.animationFrame = requestAnimationFrame(this.gameLoop.bind(this));
+      this.animationFrameId = this.animationFrame; // Keep both variables in sync
+    }
   }
   
   // Set callback for game over event
@@ -1333,7 +1455,9 @@ export class Game {
             this.ui.updateLevelDisplay(1, 0);
           } else {
             // If no specific method exists, force a full UI redraw
-            this.ui.draw(window.innerWidth, window.innerHeight);
+            if (this.ui && typeof this.ui.draw === 'function') {
+              this.ui.draw(window.innerWidth, window.innerHeight);
+            }
           }
         }
         
@@ -1460,5 +1584,43 @@ export class Game {
         this.soundManager.playGameOver();
       }
     }
+  }
+  
+  /**
+   * Safely creates an ember at the specified location
+   * @param {number} x - X position
+   * @param {number} y - Y position
+   * @param {number} value - XP value of the ember (default: 10)
+   * @returns {Object|null} The created ember or null if creation failed
+   */
+  createEmberAt(x, y, value = 10) {
+    // Skip if game is over or world complete
+    if (!this.isRunning || this.gameState.gameOver || this.gameState.worldComplete) {
+      return null;
+    }
+    
+    // Verify we have required dependencies
+    if (!this.particleSystem) {
+      console.warn('Cannot create ember: particleSystem is not initialized');
+      return null;
+    }
+    
+    try {
+      // Get the current world to determine which ember to create
+      const EmberClass = this.worldManager?.getCurrentWorld()?.EmberClass || Ember;
+      
+      // Create ember with the particle system for visual effects
+      const ember = new EmberClass(x, y, this.particleSystem, value);
+      
+      // Add to embers array
+      if (ember) {
+        this.embers.push(ember);
+        return ember;
+      }
+    } catch (error) {
+      console.error('Error creating ember:', error);
+    }
+    
+    return null;
   }
 }

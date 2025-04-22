@@ -4,6 +4,7 @@
  */
 
 import { World1UI } from './world1UI.js';
+import { FlameHelicopter } from '../../entities/flameHelicopter.js';
 
 export class World1HazardCoordinator {
   constructor(world1Config) {
@@ -42,21 +43,8 @@ export class World1HazardCoordinator {
     const game = window.gameInstance;
     if (!game) return;
     
-    // World 1 hazards are simple - just spawn FlameHelicopter or LavaBurst
-    if (Math.random() < 0.6) {
-      if (typeof FlameHelicopter !== 'undefined') {
-        game.hazards.push(new FlameHelicopter(x, y, game.particleSystem));
-      }
-    } else {
-      if (typeof LavaBurst !== 'undefined') {
-        game.hazards.push(new LavaBurst(x, y, game.particleSystem));
-      } else {
-        // Fallback to FlameHelicopter if LavaBurst is not defined
-        if (typeof FlameHelicopter !== 'undefined') {
-          game.hazards.push(new FlameHelicopter(x, y, game.particleSystem));
-        }
-      }
-    }
+    // World 1 hazards are simple - just spawn FlameHelicopter
+    game.hazards.push(new FlameHelicopter(x, y, game.particleSystem));
   }
   
   /**
