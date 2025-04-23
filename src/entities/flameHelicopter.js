@@ -1,15 +1,17 @@
+import { ParticleEmitter } from '../particles/ParticleEmitter.js';
+
 export class FlameHelicopter {
   constructor(x, y, particleSystem) {
     this.x = x;
     this.y = y;
     this.size = 40 + Math.random() * 20;
     this.particleSystem = particleSystem;
-    this.speed = 60 + Math.random() * 30; // Slightly slower but more maneuverable
+    this.speed = 90 + Math.random() * 50; // Base movement speed
     this.particleTimer = 0;
     this.rotorAngle = 0;
-    this.rotorSpeed = 8 + Math.random() * 4;
-    this.health = 7; // More health to make them more challenging
-    this.maxHealth = 7; // Store maximum health
+    this.rotorSpeed = 10 + Math.random() * 5;
+    this.health = 3; // More health to make them more challenging
+    this.maxHealth = 3; // Store maximum health
     this.glowTimer = 0;
     
     // Burning effect properties
@@ -20,20 +22,27 @@ export class FlameHelicopter {
     this.burnDamageRate = 0;
     this.lastBurnDamageTime = 0;
     
-    // Enhanced movement patterns
+    // Enhanced movement patterns - using only this for movement now
     this.horzDirection = Math.random() > 0.5 ? 1 : -1;
     this.horzSpeed = 30 + Math.random() * 40; // Faster horizontal movement
     this.horzTimer = 0;
     this.horzInterval = 0.8 + Math.random() * 1.6; // More frequent direction changes
-    this.chargeMode = false;
-    this.chargeTimer = 0;
-    this.targetX = x;
-    this.targetY = y;
-    this.targetIndicator = {
-      angle: 0,
-      pulseSize: 1,
-      opacity: 0
-    };
+    
+    // Add some vertical oscillation
+    this.vertDirection = Math.random() > 0.5 ? 1 : -1;
+    this.vertSpeed = 20 + Math.random() * 20;
+    this.vertTimer = 0;
+    this.vertInterval = 1.2 + Math.random() * 1.8;
+    
+    // Strafing run properties
+    this.strafing = false;
+    this.strafeSpeed = 300; // Faster than normal movement
+    this.strafeTimer = 0;
+    this.strafeDuration = 1.5; // How long a strafe lasts
+    this.strafeCooldown = 0;
+    this.strafeCooldownTime = 7 + Math.random() * 5; // Time between strafes
+    this.strafeEmissionRate = 0.02; // Faster particle emission during strafe
+    this.strafeDirection = 0; // Will be set when strafing starts
     
     // Particles configuration
     this.bodyParticles = [];
@@ -77,6 +86,9 @@ export class FlameHelicopter {
     // Set initial colors based on current world
     this.getCurrentWorldColors();
     this.initializeParticles();
+    
+    // Set active by default
+    this.active = true;
   }
   
   getCurrentWorldColors() {
@@ -186,48 +198,21 @@ export class FlameHelicopter {
       }
     }
     
-    // Basic movement downward
-    this.y += this.speed * deltaTime;
-    
-    // Occasionally enter charge mode to target player
-    this.chargeTimer += deltaTime;
-    if (!this.chargeMode && this.chargeTimer > 5 && Math.random() < 0.02) {
-      this.chargeMode = true;
-      // Store current position as target - will be updated during game collision detection
-      this.chargeTimer = 0;
+    // Update strafing cooldown if not currently strafing
+    if (!this.strafing) {
+      this.strafeCooldown -= deltaTime;
       
-      // Reset target indicator animation
-      this.targetIndicator.angle = 0;
-      this.targetIndicator.pulseSize = 1;
-      this.targetIndicator.opacity = 1;
+      // Check if we should start a strafe run
+      if (this.strafeCooldown <= 0) {
+        this.startStrafeRun();
+      }
     }
     
-    if (this.chargeMode) {
-      // Move towards stored target - this will be updated to player position
-      // in the game's update loop when checking for collisions
-      const dx = this.targetX - this.x;
-      const dy = this.targetY - this.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      
-      if (dist > 10) {
-        this.x += dx * 0.8 * deltaTime;
-        this.y += dy * 0.4 * deltaTime; // Still move down but more focused on x-targeting
-      } else {
-        // Exit charge mode if we reached the target
-        this.chargeMode = false;
-        this.chargeTimer = 0;
-        this.targetIndicator.opacity = 0; // Hide indicator when exiting charge mode
-      }
+    // Handle movement based on current mode
+    if (this.strafing) {
+      this.updateStrafeMovement(deltaTime);
     } else {
-      // Standard horizontal movement pattern
-      this.horzTimer += deltaTime;
-      if (this.horzTimer > this.horzInterval) {
-        this.horzDirection *= -1;
-        this.horzTimer = 0;
-        this.horzInterval = 0.8 + Math.random() * 1.6;
-      }
-      
-      this.x += this.horzDirection * this.horzSpeed * deltaTime;
+      this.updateNormalMovement(deltaTime);
     }
     
     // Rotate the helicopter blades
@@ -238,7 +223,9 @@ export class FlameHelicopter {
     
     // Emit flame particles for engine exhaust effect
     this.particleTimer += deltaTime;
-    if (this.particleTimer > 0.05) {
+    const emissionRate = this.strafing ? this.strafeEmissionRate : 0.05;
+    
+    if (this.particleTimer > emissionRate) {
       // Main engine exhaust
       this.particleSystem.createFlame(
         this.x - 15 + (Math.random() - 0.5) * 5,
@@ -249,6 +236,16 @@ export class FlameHelicopter {
       const rotorX = this.x + Math.cos(this.rotorAngle) * 25;
       const rotorY = this.y + Math.sin(this.rotorAngle) * 25;
       this.particleSystem.createEmber(rotorX, rotorY);
+      
+      // Extra trail particles during strafe
+      if (this.strafing) {
+        // Create a trail of flames behind the helicopter
+        for (let i = 0; i < 3; i++) {
+          const offsetX = -this.strafeDirection * (10 + i * 5) + (Math.random() - 0.5) * 10;
+          const offsetY = (Math.random() - 0.5) * 10;
+          this.particleSystem.createFlame(this.x + offsetX, this.y + offsetY);
+        }
+      }
       
       this.particleTimer = 0;
     }
@@ -287,21 +284,109 @@ export class FlameHelicopter {
         }
       }
     }
+  }
+  
+  // Split movement into separate methods for better organization
+  updateNormalMovement(deltaTime) {
+    // Basic movement downward
+    this.y += this.speed * deltaTime;
     
-    // Animate target indicator when in charge mode
-    if (this.chargeMode) {
-      // Rotate the indicator
-      this.targetIndicator.angle += 2 * deltaTime;
-      if (this.targetIndicator.angle > Math.PI * 2) {
-        this.targetIndicator.angle -= Math.PI * 2;
+    // Horizontal movement pattern
+    this.horzTimer += deltaTime;
+    if (this.horzTimer > this.horzInterval) {
+      this.horzDirection *= -1;
+      this.horzTimer = 0;
+      this.horzInterval = 0.8 + Math.random() * 1.6;
+    }
+    
+    this.x += this.horzDirection * this.horzSpeed * deltaTime;
+    
+    // Vertical oscillation (small up/down movements)
+    this.vertTimer += deltaTime;
+    if (this.vertTimer > this.vertInterval) {
+      this.vertDirection *= -1;
+      this.vertTimer = 0;
+      this.vertInterval = 1.2 + Math.random() * 1.8;
+    }
+    
+    // Apply slight vertical oscillation
+    this.y += this.vertDirection * this.vertSpeed * 0.2 * deltaTime;
+  }
+  
+  updateStrafeMovement(deltaTime) {
+    // Update strafe timer
+    this.strafeTimer += deltaTime;
+    
+    // Move fast in strafe direction with slight downward drift
+    this.x += this.strafeDirection * this.strafeSpeed * deltaTime;
+    this.y += this.speed * 0.2 * deltaTime; // Slower vertical movement during strafe
+    
+    // Increase rotor speed during strafe for dramatic effect
+    this.rotorSpeed = 15 + Math.sin(this.strafeTimer * 10) * 5;
+    
+    // End strafe if duration is over or helicopter is off-screen
+    if (this.strafeTimer >= this.strafeDuration ||
+        this.x < -100 || 
+        this.x > window.innerWidth + 100) {
+      this.endStrafeRun();
+    }
+  }
+  
+  startStrafeRun() {
+    // Don't start a strafe if already strafing
+    if (this.strafing) return;
+    
+    this.strafing = true;
+    this.strafeTimer = 0;
+    
+    // Determine strafe direction based on position
+    // If on left side, go right; if on right side, go left
+    if (this.x < window.innerWidth / 2) {
+      this.strafeDirection = 1; // Right
+    } else {
+      this.strafeDirection = -1; // Left
+    }
+    
+    // Play a sound if we have access to the sound manager
+    if (window.gameInstance && window.gameInstance.soundManager) {
+      // Check if the specific method exists before calling it
+      if (typeof window.gameInstance.soundManager.playHelicopterCharge === 'function') {
+        window.gameInstance.soundManager.playHelicopterCharge(0.5);
+      } else if (typeof window.gameInstance.soundManager.playEffect === 'function') {
+        // Try to use a generic sound effect method as fallback
+        window.gameInstance.soundManager.playEffect('helicopterCharge', 0.5);
       }
-      
-      // Pulse the indicator size
-      this.targetIndicator.pulseSize = 1 + 0.3 * Math.sin(Date.now() / 100);
-    } else if (this.targetIndicator.opacity > 0) {
-      // Fade out indicator when not in charge mode
-      this.targetIndicator.opacity -= deltaTime * 3;
-      if (this.targetIndicator.opacity < 0) this.targetIndicator.opacity = 0;
+    }
+    
+    // Create a burst of particles to indicate the start of the strafe
+    for (let i = 0; i < 10; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const distance = 10 + Math.random() * 20;
+      this.particleSystem.createEmber(
+        this.x + Math.cos(angle) * distance,
+        this.y + Math.sin(angle) * distance
+      );
+    }
+    
+    // Temporarily increase the helicopter's glow
+    this.glowTimer = 0.5;
+  }
+  
+  endStrafeRun() {
+    this.strafing = false;
+    // Reset the cooldown
+    this.strafeCooldown = this.strafeCooldownTime;
+    // Reset rotor speed
+    this.rotorSpeed = 10 + Math.random() * 5;
+    
+    // Create a burst of particles to indicate the end of the strafe
+    for (let i = 0; i < 5; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const distance = 5 + Math.random() * 10;
+      this.particleSystem.createFlame(
+        this.x + Math.cos(angle) * distance,
+        this.y + Math.sin(angle) * distance
+      );
     }
   }
   
@@ -319,11 +404,6 @@ export class FlameHelicopter {
     
     // Draw rotors on top
     this.drawRotors(ctx);
-    
-    // Draw targeting indicator when in charge mode
-    if (this.targetIndicator.opacity > 0) {
-      this.drawTargetIndicator(ctx);
-    }
   }
   
   drawBurningEffect(ctx) {
@@ -389,93 +469,6 @@ export class FlameHelicopter {
       ctx.fillStyle = flameGradient;
       ctx.fill();
     }
-  }
-  
-  drawTargetIndicator(ctx) {
-    ctx.save();
-    
-    // Draw red glowing circle around helicopter
-    const baseSize = this.size * 0.6;
-    const pulseSize = baseSize * this.targetIndicator.pulseSize;
-    
-    // Create a bright red glow
-    const glowGradient = ctx.createRadialGradient(
-      this.x, this.y, baseSize * 0.5,
-      this.x, this.y, pulseSize
-    );
-    
-    glowGradient.addColorStop(0, `rgba(255, 50, 50, ${0.7 * this.targetIndicator.opacity})`);
-    glowGradient.addColorStop(0.6, `rgba(255, 30, 30, ${0.4 * this.targetIndicator.opacity})`);
-    glowGradient.addColorStop(1, `rgba(255, 0, 0, 0)`);
-    
-    ctx.fillStyle = glowGradient;
-    ctx.beginPath();
-    ctx.arc(this.x, this.y, pulseSize, 0, Math.PI * 2);
-    ctx.fill();
-    
-    // Draw targeting triangles around the helicopter
-    ctx.strokeStyle = `rgba(255, 50, 50, ${this.targetIndicator.opacity})`;
-    ctx.lineWidth = 2;
-    
-    for (let i = 0; i < 3; i++) {
-      const angle = this.targetIndicator.angle + (i * Math.PI * 2 / 3);
-      const distance = pulseSize * 1.2;
-      
-      const x = this.x + Math.cos(angle) * distance;
-      const y = this.y + Math.sin(angle) * distance;
-      
-      // Draw triangle pointer
-      ctx.beginPath();
-      ctx.moveTo(
-        x + Math.cos(angle) * 10,
-        y + Math.sin(angle) * 10
-      );
-      ctx.lineTo(
-        x + Math.cos(angle + Math.PI * 0.8) * 8,
-        y + Math.sin(angle + Math.PI * 0.8) * 8
-      );
-      ctx.lineTo(
-        x + Math.cos(angle - Math.PI * 0.8) * 8,
-        y + Math.sin(angle - Math.PI * 0.8) * 8
-      );
-      ctx.closePath();
-      ctx.stroke();
-    }
-    
-    // Draw targeting line to player when target is set
-    if (this.targetX && this.targetY) {
-      const dx = this.targetX - this.x;
-      const dy = this.targetY - this.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      
-      if (distance > pulseSize) {
-        const angle = Math.atan2(dy, dx);
-        const lineLength = Math.min(distance - pulseSize, 100);
-        
-        // Calculate start and end points for the line
-        const startX = this.x + Math.cos(angle) * pulseSize;
-        const startY = this.y + Math.sin(angle) * pulseSize;
-        const endX = startX + Math.cos(angle) * lineLength;
-        const endY = startY + Math.sin(angle) * lineLength;
-        
-        // Create gradient for line
-        const lineGradient = ctx.createLinearGradient(startX, startY, endX, endY);
-        lineGradient.addColorStop(0, `rgba(255, 50, 50, ${this.targetIndicator.opacity})`);
-        lineGradient.addColorStop(1, `rgba(255, 50, 50, 0)`);
-        
-        // Draw dotted targeting line
-        ctx.strokeStyle = lineGradient;
-        ctx.lineWidth = 2;
-        ctx.setLineDash([5, 5]);
-        ctx.beginPath();
-        ctx.moveTo(startX, startY);
-        ctx.lineTo(endX, endY);
-        ctx.stroke();
-        ctx.setLineDash([]);
-      }
-    }
-    
-    ctx.restore();
   }
   
   drawBody(ctx) {

@@ -8,7 +8,7 @@ export const world3 = {
     name: "Frost Peak",
     description: "A treacherous ascent through crystalline spires and arctic winds",
     
-    // World-specific Ember class
+    // World-specific Ember class - Must use FrostEmber only, not regular Ember
     EmberClass: FrostEmber,
     
     // World-specific settings
@@ -36,22 +36,25 @@ export const world3 = {
         }
     },
     
-    // Collectible configuration
+    // Collectible configuration - Use FrostEmber for all ember types
     collectibles: {
-        ember: {
+        ember: { // Using FrostEmber class instead of regular Ember
             spawnRate: 800,
             maxActive: 7,
-            value: 20 // Even more valuable embers
+            value: 20, // Ice-themed embers are more valuable
+            spawnClass: FrostEmber
         },
-        powerEmber: {
+        powerEmber: { // Also using FrostEmber class with higher value
             spawnRate: 4000,
             maxActive: 2,
-            value: 75
+            value: 75,
+            spawnClass: FrostEmber
         },
-        frostEmber: { // New collectible type
+        frostEmber: { // Special high-value frost ember
             spawnRate: 6000,
             maxActive: 1,
-            value: 100
+            value: 100,
+            spawnClass: FrostEmber
         }
     },
     
@@ -85,12 +88,16 @@ export const world3 = {
         iceSpikes: {
             manager: 'IceSpikeManager', // Reference to the manager class
             config: 'hazards.iceSpike', // Path to configuration in this file
-            // Additional system-specific settings if needed
             enabled: true,
             difficultyScaling: {
                 spawnRateMultiplier: 0.9, // Spawn rate decreases with level
                 damageMultiplier: 1.1     // Damage increases with level
             }
+        },
+        icePhoenix: {
+            manager: 'IcePhoenixManager', // Reference to the phoenix manager
+            config: 'enemies.icePhoenix', // Path to configuration in this file
+            enabled: true
         }
     },
     

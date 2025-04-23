@@ -147,18 +147,29 @@ export class FlameHelicopter {
     if (this.chargeMode) {
       // Move towards stored target - this will be updated to player position
       // in the game's update loop when checking for collisions
-      const dx = this.targetX - this.x;
-      const dy = this.targetY - this.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
       
-      if (dist > 10) {
-        this.x += dx * 0.8 * deltaTime;
-        this.y += dy * 0.4 * deltaTime; // Still move down but more focused on x-targeting
-      } else {
-        // Exit charge mode if we reached the target
+      // Check if we have valid target coordinates
+      if (typeof this.targetX !== 'number' || typeof this.targetY !== 'number' || 
+          isNaN(this.targetX) || isNaN(this.targetY)) {
+        // If target is invalid, exit charge mode and resume normal movement
         this.chargeMode = false;
         this.chargeTimer = 0;
-        this.targetIndicator.opacity = 0; // Hide indicator when exiting charge mode
+        this.targetIndicator.opacity = 0;
+        console.log("World4 FlameHelicopter: Invalid target coordinates, exiting charge mode");
+      } else {
+        const dx = this.targetX - this.x;
+        const dy = this.targetY - this.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        if (dist > 10) {
+          this.x += dx * 0.8 * deltaTime;
+          this.y += dy * 0.4 * deltaTime; // Still move down but more focused on x-targeting
+        } else {
+          // Exit charge mode if we reached the target
+          this.chargeMode = false;
+          this.chargeTimer = 0;
+          this.targetIndicator.opacity = 0; // Hide indicator when exiting charge mode
+        }
       }
     } else {
       // Standard horizontal movement pattern

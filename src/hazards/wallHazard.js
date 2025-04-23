@@ -79,17 +79,8 @@ export class WallHazard {
       const particleX = this.x + (this.width * (i / particleCount));
       const particleY = this.y + Math.random() * this.height;
       
-      this.particleSystem.addParticle({
-        x: particleX,
-        y: particleY,
-        velocityX: (Math.random() - 0.5) * 0.5,
-        velocityY: -0.5 - Math.random() * 0.5,
-        size: 5 + Math.random() * 10,
-        color: 'rgba(100, 100, 100, 0.7)',
-        lifetime: 1.5 + Math.random(),
-        shrink: true,
-        fade: true
-      });
+      // Use createSmoke method instead of addParticle
+      this.particleSystem.createSmoke(particleX, particleY);
     }
   }
 

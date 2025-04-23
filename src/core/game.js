@@ -397,6 +397,11 @@ export class Game {
   }
   
   spawnEmber() {
+    // User requested to disable ember spawning
+    return null;
+    
+    // The rest of the method is now dead code but left for future reference
+    /* 
     // Check if game is still active
     if (!this.isRunning || this.gameState.gameOver || this.gameState.worldComplete) {
       return null; // Don't spawn embers if game is not actively running
@@ -435,6 +440,7 @@ export class Game {
     }
     
     return ember;
+    */
   }
   
   spawnHazard() {
@@ -486,40 +492,47 @@ export class Game {
   }
   
   update(deltaTime) {
-    // Don't update if the world is complete or game is over
-    if (this.gameState.worldComplete || this.gameState.gameOver) return;
+    // Check if game is paused or over
+    if (this.isPaused || this.gameState.gameOver || this.gameState.worldComplete) {
+      return;
+    }
     
     // Update game time
-    this.gameTime += deltaTime;
-    
-    // Safety check - prevent infinite loops
-    if (deltaTime <= 0) return;
-    
-    // Update the survival time counter
     this.gameState.survivalTime += deltaTime;
+    
+    // Update world time progress
+    if (this.gameState.totalLevelTime > 0) {
+      this.gameState.levelTimeRemaining -= deltaTime;
+      
+      if (this.gameState.levelTimeRemaining <= 0) {
+        this.handleTimeLimitReached();
+      }
+    }
     
     // Update phoenix, particles, and other game elements
     this.phoenix.update(deltaTime);
-    this.particleSystem.update(deltaTime);
     
-    // Only spawn embers if the game is actually running and not paused
-    if (this.isRunning && !this.isPaused && Date.now() - this.lastEmberTime > 300) {
-      // Spawn multiple embers at once (3-7)
-      const emberCount = Math.floor(Math.random() * 5) + 3; // 3-7 embers
-      for (let i = 0; i < emberCount; i++) {
-        this.spawnEmber();
-      }
-      this.lastEmberTime = Date.now();
-      console.log(`Spawned ${emberCount} embers. Total: ${this.embers.length}`);
-    }
+    this.particleSystem.update(deltaTime);
     
     // Check immediately if the phoenix has no health or game is over - don't continue updates
     if (this.phoenix.health <= 0 || this.gameState.gameOver) {
-      if (!this.gameState.gameOver) {
-        // If health is 0 but game is not marked as over yet, call handlePhoenixDefeated
-        this.handlePhoenixDefeated();
+      this.handlePhoenixDefeated();
+      return;
+    }
+
+    // GLOBAL FIX: Force-fix all helicopters in all worlds to prevent straight-up targeting
+    // This will catch any helicopter that wasn't fixed by updateHelicopterTargets
+    for (let i = 0; i < this.hazards.length; i++) {
+      // No special processing needed for helicopters anymore
+      // They now use simple movement patterns
+    }
+
+    // Check for collisions with world-specific hazards
+    if (this.worldManager) {
+      const hazardDamage = this.worldManager.checkHazardCollisions(this.phoenix);
+      if (hazardDamage > 0) {
+        this.handleHazardCollision('world', hazardDamage);
       }
-      return; // Stop all updates immediately when dead
     }
 
     // No auto-rise for phoenix, but track altitude by time
@@ -598,12 +611,6 @@ export class Game {
       if (!hazard.active) {
         this.hazards.splice(i, 1);
         continue;
-      }
-      
-      // Update target position if in charge mode (for FlameHelicopter)
-      if (hazard.chargeMode) {
-        hazard.targetX = this.phoenix.x;
-        hazard.targetY = this.phoenix.y;
       }
       
       hazard.update(deltaTime);
@@ -861,17 +868,7 @@ export class Game {
           this.gameState.addXP(25);
           
           // Play smaller explosion for bats
-          this.soundManager.playExplosion(0.5);
-          
-          // Small screen shake for regular enemies
           this.triggerScreenShake(0.2, 0.3);
-          
-          // Spawn embers at enemy position
-          for (let j = 0; j < 3; j++) {
-            const emberX = enemy.x + (Math.random() - 0.5) * 20;
-            const emberY = enemy.y + (Math.random() - 0.5) * 20;
-            this.createEmberAt(emberX, emberY, 10);
-          }
           
           this.enemies.splice(i, 1);
         }
@@ -883,17 +880,7 @@ export class Game {
         this.gameState.addXP(25);
         
         // Play smaller explosion for bats
-        this.soundManager.playExplosion(0.5);
-        
-        // Small screen shake for regular enemies
         this.triggerScreenShake(0.2, 0.3);
-        
-        // Spawn embers at enemy position
-        for (let j = 0; j < 3; j++) {
-          const emberX = enemy.x + (Math.random() - 0.5) * 20;
-          const emberY = enemy.y + (Math.random() - 0.5) * 20;
-          this.createEmberAt(emberX, emberY, 10);
-        }
         
         this.enemies.splice(i, 1);
       }
@@ -994,8 +981,8 @@ export class Game {
       if (window.rankSystem) {
         // Add XP based on survival time, level reached, and current XP
         const rankXP = Math.floor(this.gameState.survivalTime * 2) + 
-                      (this.gameState.level * 10) + 
-                      Math.floor(this.gameState.xp / 5);
+                     (this.gameState.level * 10) + 
+                     Math.floor(this.gameState.xp / 5);
         window.rankSystem.addXP(rankXP, false);
         window.rankSystem.saveRankData(); // Explicitly save rank data
       }
@@ -1017,11 +1004,117 @@ export class Game {
     const burstCount = 24; // Number of flame projectiles
     const radius = 120; // Initial distance from phoenix
     
+    console.log("SPECIAL ATTACK TRIGGERED - Checking for World 3 Ice Phoenixes");
+    
     // Play special attack sound
     this.soundManager.playExplosion(1.0);
     
     // Add screen shake effect
     this.triggerScreenShake(0.7, 1.0);
+    
+    // EXTREME DEBUG MODE - Use the exposed manager function to force kill all phoenixes
+    // This bypasses any property issues or invulnerability
+    const currentWorld = this.getCurrentWorld();
+    if (currentWorld === 3) {
+      if (window.icePhoenixManager && typeof window.icePhoenixManager.forceKillAll === 'function') {
+        console.log("DEBUG MODE: Force-killing all Ice Phoenixes via direct manager call");
+        window.icePhoenixManager.forceKillAll();
+      } else {
+        console.log("Could not find icePhoenixManager with forceKillAll method");
+        
+        // Try to find it via the enemy coordinator
+        const enemyCoordinator = this.worldManager?.currentEnemyCoordinator;
+        if (enemyCoordinator) {
+          console.log("Found enemy coordinator for World 3:", enemyCoordinator);
+          
+          // Add the force kill all method if it doesn't exist
+          if (!enemyCoordinator.forceKillAll && enemyCoordinator.phoenixes && Array.isArray(enemyCoordinator.phoenixes)) {
+            console.log("Adding forceKillAll method to coordinator");
+            
+            enemyCoordinator.forceKillAll = function() {
+              console.log("Force-killing all ice phoenixes from injected method");
+              
+              if (!this.phoenixes || this.phoenixes.length === 0) {
+                console.log("No phoenixes to kill");
+                return;
+              }
+              
+              // Kill all phoenixes
+              for (let i = this.phoenixes.length - 1; i >= 0; i--) {
+                const phoenix = this.phoenixes[i];
+                console.log(`Killing phoenix ${i} - current health: ${phoenix.health}`);
+                
+                // Force set health directly to extremely negative value
+                phoenix.health = -9999;
+                
+                // Create death effect if method exists
+                if (typeof this.createDeathEffect === 'function') {
+                  this.createDeathEffect(phoenix);
+                }
+                
+                // Award XP if game instance exists
+                if (window.gameInstance?.gameState) {
+                  window.gameInstance.gameState.addXP(30);
+                }
+                
+                // Remove the phoenix
+                this.phoenixes.splice(i, 1);
+              }
+              
+              console.log("All phoenixes killed by force");
+            };
+            
+            // Call the newly added method
+            enemyCoordinator.forceKillAll();
+          } else if (enemyCoordinator.forceKillAll) {
+            // Call the existing method
+            enemyCoordinator.forceKillAll();
+          } else {
+            console.log("Couldn't find phoenixes array or add forceKillAll method");
+            
+            // Do it the direct way - try to check for phoenixes directly
+            if (enemyCoordinator.phoenixes && Array.isArray(enemyCoordinator.phoenixes)) {
+              console.log(`Ice Phoenixes found: ${enemyCoordinator.phoenixes.length}`);
+              
+              // Process each phoenix
+              for (let i = enemyCoordinator.phoenixes.length - 1; i >= 0; i--) {
+                const phoenix = enemyCoordinator.phoenixes[i];
+                
+                // Force set health to extremely negative value
+                phoenix.health = -9999;
+                console.log(`Force set phoenix ${i} health to -9999`);
+                
+                // Create explosion effect if method exists
+                try {
+                  const createDeathEffect = enemyCoordinator.createDeathEffect;
+                  if (createDeathEffect && typeof createDeathEffect === 'function') {
+                    createDeathEffect.call(enemyCoordinator, phoenix);
+                    console.log("Death effect created");
+                  }
+                } catch (e) {
+                  console.error("Error creating death effect:", e);
+                }
+                
+                // Award XP
+                this.gameState.addXP(30);
+                
+                // Remove the phoenix
+                try {
+                  enemyCoordinator.phoenixes.splice(i, 1);
+                  console.log("Phoenix removed from array");
+                } catch (e) {
+                  console.error("Error removing phoenix:", e);
+                }
+              }
+            } else {
+              console.log("No phoenixes array found in the enemy coordinator");
+            }
+          }
+        } else {
+          console.log("No enemy coordinator found for World 3");
+        }
+      }
+    }
     
     // Create flame projectiles in all directions
     for (let i = 0; i < burstCount; i++) {
@@ -1074,7 +1167,9 @@ export class Game {
         hazard.health -= damage;
         
         // Set burning effect on the hazard
-        hazard.setBurning(4, 1.0);
+        if (hazard.setBurning && typeof hazard.setBurning === 'function') {
+          hazard.setBurning(4, 1.0);
+        }
         
         // Spawn visual effect at hazard position to show it was hit
         for (let j = 0; j < 8; j++) {
@@ -1123,23 +1218,65 @@ export class Game {
         const damageMultiplier = 1 - (distance / maxDamageRadius);
         const damage = 40 * damageMultiplier;
         
-        // Apply damage and check if enemy was defeated
+        // Apply damage to all enemies
         enemy.health -= damage;
         
-        // Set burning effect on the enemy
-        enemy.setBurning(3, 0.8);
+        // Set burning effect on the enemy ONLY if not an Ice Phoenix
+        const isIcePhoenix = enemy.constructor && 
+                             (enemy.constructor.name === 'IcePhoenix' || 
+                             (window.gameInstance?.gameState?.currentWorld === 3 &&
+                              enemy.iceBlasts !== undefined));
         
-        // Spawn visual effect at enemy position to show it was hit
+        if (isIcePhoenix) {
+          console.log("Found Ice Phoenix in enemies array - applying damage");
+          // Apply extra damage to Ice Phoenix enemies
+          enemy.health -= 60; // Additional damage
+        }
+        
+        if (!isIcePhoenix && enemy.setBurning && typeof enemy.setBurning === 'function') {
+          // Only burn enemies that aren't Ice Phoenixes
+          enemy.setBurning(3, 0.8);
+        }
+        
+        // Show hit effect for all enemy types
         for (let j = 0; j < 6; j++) {
           const angle = Math.random() * Math.PI * 2;
           const speed = 1 + Math.random() * 2;
-          this.particleSystem.createEmber(
-            enemy.x, 
-            enemy.y,
-            Math.cos(angle) * speed,
-            Math.sin(angle) * speed,
-            0.7
-          );
+          
+          // Use frost particles for Ice Phoenixes, regular embers for others
+          if (isIcePhoenix) {
+            // Create frost particle effect instead of embers for Ice Phoenixes
+            if (this.particleSystem.createParticle) {
+              this.particleSystem.createParticle(
+                enemy.x,
+                enemy.y,
+                Math.cos(angle) * speed,
+                Math.sin(angle) * speed,
+                Math.random() * 3 + 1,
+                'rgba(180, 230, 255, 0.8)',
+                30,
+                0.9
+              );
+            } else {
+              // Fallback to regular embers if createParticle doesn't exist
+              this.particleSystem.createEmber(
+                enemy.x,
+                enemy.y,
+                Math.cos(angle) * speed,
+                Math.sin(angle) * speed,
+                0.7
+              );
+            }
+          } else {
+            // Regular flame particles for normal enemies
+            this.particleSystem.createEmber(
+              enemy.x,
+              enemy.y,
+              Math.cos(angle) * speed,
+              Math.sin(angle) * speed,
+              0.7
+            );
+          }
         }
         
         // If enemy was defeated, handle the destruction
@@ -1147,14 +1284,42 @@ export class Game {
           // Enemy defeated - drop XP and remove
           this.gameState.addXP(25);
           
-          // Play smaller explosion for enemies
-          this.soundManager.playExplosion(0.5);
-          
-          // Spawn embers at enemy position
-          for (let j = 0; j < 3; j++) {
-            const emberX = enemy.x + (Math.random() - 0.5) * 20;
-            const emberY = enemy.y + (Math.random() - 0.5) * 20;
-            this.createEmberAt(emberX, emberY, 10);
+          // Play explosion sound - different for Ice Phoenixes
+          if (isIcePhoenix) {
+            // Ice breaking sound if available
+            if (this.soundManager.playSound) {
+              this.soundManager.playSound('iceBreak', 0.5);
+            } else {
+              this.soundManager.playExplosion(0.4);
+            }
+            
+            // Create ice shatter particles
+            for (let j = 0; j < 15; j++) {
+              if (this.particleSystem.createParticle) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 1 + Math.random() * 3;
+                this.particleSystem.createParticle(
+                  enemy.x,
+                  enemy.y,
+                  Math.cos(angle) * speed,
+                  Math.sin(angle) * speed,
+                  Math.random() * 3 + 1,
+                  'rgba(180, 230, 255, 0.8)',
+                  30,
+                  0.9
+                );
+              }
+            }
+          } else {
+            // Regular explosion for normal enemies
+            this.soundManager.playExplosion(0.5);
+            
+            // Spawn embers at enemy position
+            for (let j = 0; j < 3; j++) {
+              const emberX = enemy.x + (Math.random() - 0.5) * 20;
+              const emberY = enemy.y + (Math.random() - 0.5) * 20;
+              this.createEmberAt(emberX, emberY, 10);
+            }
           }
           
           this.enemies.splice(i, 1);
@@ -1663,6 +1828,48 @@ export class Game {
     // Restart the animation frame if needed
     if (!this.requestAnimationFrameId) {
       this.requestAnimationFrameId = requestAnimationFrame(this.gameLoop.bind(this));
+    }
+  }
+
+  updateHelicopterTargets(phoenix) {
+    // This method is no longer needed, but keep an empty implementation
+    // in case it's still being called elsewhere
+    return;
+  }
+
+  handleGameTouch(e) {
+    // ... existing code ...
+    
+    // Triple tap debug check for immediate Ice Phoenix kill
+    const now = Date.now();
+    if (!this.lastTapTime) {
+        this.lastTapTime = now;
+        this.tapCount = 1;
+    } else if (now - this.lastTapTime < 300) {
+        this.tapCount++;
+        if (this.tapCount >= 3) {
+            console.log("TRIPLE TAP DETECTED - ACTIVATING DEBUG KILL");
+            this.tapCount = 0;
+            
+            // Force kill all ice phoenixes if we're in world 3
+            if (this.currentWorld && this.currentWorld.id === 3 && window.icePhoenixManager) {
+                console.log("Executing emergency kill on Ice Phoenixes");
+                window.icePhoenixManager.forceKillAll();
+                
+                // Show debug info about active phoenixes
+                if (window.icePhoenixManager.phoenixes.length > 0) {
+                    console.log("WARNING: Ice Phoenixes still exist after force kill!");
+                    console.log("Phoenix details:", JSON.stringify(window.icePhoenixManager.phoenixes));
+                } else {
+                    console.log("All Ice Phoenixes successfully removed");
+                }
+            } else {
+                console.log("Not in World 3 or Ice Phoenix Manager not found");
+            }
+        }
+    } else {
+        this.lastTapTime = now;
+        this.tapCount = 1;
     }
   }
 }

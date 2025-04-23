@@ -45,8 +45,25 @@ export class UniversalUI {
     // Determine if we're in portrait or landscape mode
     const isPortrait = height > width;
     
-    // Get current world info
-    const worldNumber = this.gameState.currentWorld || 1;
+    // Get current world info - FIXED: Use worldManager's value first if available
+    let worldNumber = 1; // Default fallback
+    
+    // Priority order for world number:
+    // 1. WorldManager's current world (most accurate)
+    // 2. gameState.currentWorld (might be outdated)
+    // 3. Default to 1
+    if (this.game.worldManager?.getCurrentWorldNumber) {
+      worldNumber = this.game.worldManager.getCurrentWorldNumber();
+    } else if (this.gameState.currentWorld) {
+      worldNumber = this.gameState.currentWorld;
+    }
+    
+    // Ensure gameState.currentWorld is always in sync with worldManager
+    if (this.gameState && this.gameState.currentWorld !== worldNumber) {
+      console.log(`Fixing inconsistent world numbers: gameState has ${this.gameState.currentWorld}, worldManager has ${worldNumber}`);
+      this.gameState.currentWorld = worldNumber;
+    }
+    
     const worldConfig = this.game.worldManager?.getCurrentWorld();
     
     // Draw the appropriate UI based on layout
@@ -185,7 +202,31 @@ export class UniversalUI {
   drawWorldInfo(x, y, width, worldNumber, worldConfig) {
     const scale = width / 300; // Scale based on width
     const scaledHeight = 90 * scale; // Increased height to accommodate progress bar
-    let worldName = worldConfig?.name || `World ${worldNumber}`;
+    
+    // Get the actual world name from worldConfig or worldManager
+    let worldName = "Unknown World";
+    
+    // Try multiple ways to get the correct world name
+    if (worldConfig?.name) {
+      worldName = worldConfig.name;
+    } else if (window.gameInstance?.worldManager) {
+      // Use the worldManager to get the name based on the ACTUAL world number
+      worldName = window.gameInstance.worldManager.getWorldName(worldNumber);
+    } else {
+      // Fallback world names if all else fails
+      const worldNames = {
+        1: "Volcanic Cradle",
+        2: "Ashspire Ruins",
+        3: "Frost Peak",
+        4: "Void Domain",
+        5: "Shadow Nexus",
+        6: "Celestial Domain"
+      };
+      worldName = worldNames[worldNumber] || `World ${worldNumber}`;
+    }
+    
+    // Debug log to check what's happening
+    console.log(`Drawing world info for World ${worldNumber}: ${worldName}`);
     
     // Background box
     this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
@@ -212,7 +253,7 @@ export class UniversalUI {
     this.ctx.textAlign = 'left';
     
     // Check if we need to truncate the world name for smaller screens
-    const displayName = width < 180 ? `W${worldNumber}` : `WORLD ${worldNumber}`;
+    const displayName = width < 180 ? `W${worldNumber}` : `WORLD ${worldNumber}: ${worldName}`;
     this.ctx.fillText(displayName, x + 10, y + 20 * scale);
     
     // World progress bar - RESTORED

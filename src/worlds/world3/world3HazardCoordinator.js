@@ -34,26 +34,18 @@ export class World3HazardCoordinator {
         const game = window.gameInstance;
         if (!game) return;
         
-        // Determine which type of hazard to spawn
+        // Determine which type of hazard to spawn - Only ice-themed hazards for World 3
         const random = Math.random();
         
-        if (random < 0.4) {
-            // 40% chance to spawn an ice spike
+        if (random < 0.5) {
+            // 50% chance to spawn an ice spike
             this.spikeManager.spawnSpike(x, y);
-        } else if (random < 0.7) {
-            // 30% chance to spawn an ice phoenix
-            this.phoenixManager.spawnPhoenix(x, y);
         } else {
-            // 30% chance to spawn FrostCloud or IceShard (if defined in the game)
-            if (random < 0.85 && typeof FrostCloud !== 'undefined') {
-                game.hazards.push(new FrostCloud(x, y, game.particleSystem));
-            } else if (typeof IceShard !== 'undefined') {
-                game.hazards.push(new IceShard(x, y, game.particleSystem));
-            } else {
-                // Fallback - use spike manager if other hazards aren't defined
-                this.spikeManager.spawnSpike(x, y);
-            }
+            // 50% chance to spawn an ice phoenix
+            this.phoenixManager.spawnPhoenix(x, y);
         }
+        
+        // No fallback to other hazards - World 3 only uses ice-themed hazards
     }
 
     update(deltaTime, currentTime, width, height) {

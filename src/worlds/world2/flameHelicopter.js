@@ -35,6 +35,24 @@ export class FlameHelicopter {
       opacity: 0
     };
     
+    // Strafing behavior properties
+    this.strafing = false;
+    this.strafeTimer = 0;
+    this.strafeDirection = Math.random() > 0.5 ? 1 : -1;
+    this.strafeSpeed = 350 + Math.random() * 150;
+    this.strafeEmissionRate = 0.015;
+    this.strafeDuration = 1.2 + Math.random() * 1.0;
+    this.strafeCooldown = false;
+    this.strafeCooldownTime = 5 + Math.random() * 4;
+    this.strafeCooldownTimer = 0;
+    this.zigzagFrequency = 15;
+    this.zigzagAmplitude = 8 + Math.random() * 12;
+    
+    // World 2 special - occasional strafing with fire bombs
+    this.dropsBombs = Math.random() < 0.4;
+    this.bombDropRate = 0.3;
+    this.lastBombTime = 0;
+    
     // Particles configuration
     this.bodyParticles = [];
     this.rotorParticles = [];
@@ -47,7 +65,17 @@ export class FlameHelicopter {
       { h: 30, s: 90, l: 40 },   // Dark amber
     ];
     
+    // Set unique World 2 identifier
+    this.worldId = 'world2';
+    
     this.initializeParticles();
+    
+    // Randomly start with strafing for some helicopters
+    if (Math.random() < 0.2) {
+      setTimeout(() => {
+        this.startStrafeRun();
+      }, 2000 + Math.random() * 3000);
+    }
   }
   
   initializeParticles() {
@@ -128,48 +156,30 @@ export class FlameHelicopter {
   }
   
   update(deltaTime) {
-    // Basic movement downward
-    this.y += this.speed * deltaTime;
-    
-    // Occasionally enter charge mode to target player
-    this.chargeTimer += deltaTime;
-    if (!this.chargeMode && this.chargeTimer > 5 && Math.random() < 0.02) {
-      this.chargeMode = true;
-      // Store current position as target - will be updated during game collision detection
-      this.chargeTimer = 0;
-      
-      // Reset target indicator animation
-      this.targetIndicator.angle = 0;
-      this.targetIndicator.pulseSize = 1;
-      this.targetIndicator.opacity = 1;
+    // Update cooldown timer if we're cooling down
+    if (this.strafeCooldown) {
+      this.strafeCooldownTimer += deltaTime;
+      if (this.strafeCooldownTimer >= this.strafeCooldownTime) {
+        this.strafeCooldown = false;
+        this.strafeCooldownTimer = 0;
+        
+        // Randomly start another strafe after cooldown
+        if (Math.random() < 0.4) {
+          this.startStrafeRun();
+        }
+      }
     }
     
-    if (this.chargeMode) {
-      // Move towards stored target - this will be updated to player position
-      // in the game's update loop when checking for collisions
-      const dx = this.targetX - this.x;
-      const dy = this.targetY - this.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      
-      if (dist > 10) {
-        this.x += dx * 0.8 * deltaTime;
-        this.y += dy * 0.4 * deltaTime; // Still move down but more focused on x-targeting
-      } else {
-        // Exit charge mode if we reached the target
-        this.chargeMode = false;
-        this.chargeTimer = 0;
-        this.targetIndicator.opacity = 0; // Hide indicator when exiting charge mode
-      }
+    // Choose between strafing movement and normal movement
+    if (this.strafing) {
+      this.updateStrafeMovement(deltaTime);
     } else {
-      // Standard horizontal movement pattern
-      this.horzTimer += deltaTime;
-      if (this.horzTimer > this.horzInterval) {
-        this.horzDirection *= -1;
-        this.horzTimer = 0;
-        this.horzInterval = 0.8 + Math.random() * 1.6;
-      }
+      this.updateNormalMovement(deltaTime);
       
-      this.x += this.horzDirection * this.horzSpeed * deltaTime;
+      // Randomly enter strafe mode if not in cooldown
+      if (!this.strafeCooldown && !this.chargeMode && Math.random() < 0.002) {
+        this.startStrafeRun();
+      }
     }
     
     // Rotate the helicopter blades
@@ -245,6 +255,230 @@ export class FlameHelicopter {
       this.targetIndicator.opacity -= deltaTime * 3;
       if (this.targetIndicator.opacity < 0) this.targetIndicator.opacity = 0;
     }
+  }
+  
+  // Split the regular movement logic into a separate method
+  updateNormalMovement(deltaTime) {
+    // Basic movement downward
+    this.y += this.speed * deltaTime;
+    
+    // Occasionally enter charge mode to target player
+    this.chargeTimer += deltaTime;
+    if (!this.chargeMode && this.chargeTimer > 5 && Math.random() < 0.02) {
+      this.chargeMode = true;
+      this.chargeTimer = 0;
+      
+      // WORLD 2 FIX: Always set an initial horizontal target 
+      // This prevents the helicopter from ever targeting straight up
+      const randomHorizontalOffset = (Math.random() > 0.5 ? 200 : -200);
+      this.targetX = this.x + randomHorizontalOffset;
+      this.targetY = this.y - 100; 
+      console.log("🌋 World2 Helicopter initializing chase with target:", this.targetX, this.targetY);
+      
+      // Reset target indicator animation
+      this.targetIndicator.angle = 0;
+      this.targetIndicator.pulseSize = 1;
+      this.targetIndicator.opacity = 1;
+    }
+    
+    if (this.chargeMode) {
+      // Move towards stored target - this will be updated to player position
+      // in the game's update loop when checking for collisions
+      
+      // WORLD 2 FIX: Safety check for straight-up targeting
+      const isTargetingUp = Math.abs(this.targetX - this.x) < 10 && this.targetY < this.y;
+      if (isTargetingUp) {
+        // Force a horizontal component to the target if it's targeting straight up
+        console.log("🌋 World2 Helicopter was targeting straight up - fixing target");
+        this.targetX = this.x + (Math.random() > 0.5 ? 200 : -200);
+        this.targetY = this.y - 100;
+      }
+      
+      // Check if we have valid target coordinates
+      if (typeof this.targetX !== 'number' || typeof this.targetY !== 'number' || 
+          isNaN(this.targetX) || isNaN(this.targetY)) {
+        // If target is invalid, exit charge mode and resume normal movement
+        this.chargeMode = false;
+        this.chargeTimer = 0;
+        this.targetIndicator.opacity = 0;
+        console.log("World2 FlameHelicopter: Invalid target coordinates, exiting charge mode");
+      } else {
+        const dx = this.targetX - this.x;
+        const dy = this.targetY - this.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        if (dist > 10) {
+          this.x += dx * 0.8 * deltaTime;
+          this.y += dy * 0.4 * deltaTime; // Still move down but more focused on x-targeting
+        } else {
+          // Exit charge mode if we reached the target
+          this.chargeMode = false;
+          this.chargeTimer = 0;
+          this.targetIndicator.opacity = 0; // Hide indicator when exiting charge mode
+        }
+      }
+    } else {
+      // Standard horizontal movement pattern
+      this.horzTimer += deltaTime;
+      if (this.horzTimer > this.horzInterval) {
+        this.horzDirection *= -1;
+        this.horzTimer = 0;
+        this.horzInterval = 0.8 + Math.random() * 1.6;
+      }
+      
+      this.x += this.horzDirection * this.horzSpeed * deltaTime;
+    }
+  }
+  
+  // Strafing behavior methods
+  startStrafeRun() {
+    if (this.strafing || this.strafeCooldown) return;
+    
+    console.log("🌋 World2 Helicopter starting strafe run");
+    this.strafing = true;
+    this.strafeTimer = 0;
+    
+    // Choose a random direction for strafing (left to right or right to left)
+    this.strafeDirection = Math.random() > 0.5 ? 1 : -1;
+    
+    // Position the helicopter just off-screen on the side we're coming from
+    if (this.strafeDirection > 0) {
+      this.x = -50; // Start from left side
+    } else {
+      this.x = window.innerWidth + 50; // Start from right side
+    }
+    
+    // Random Y position in the upper half of the screen
+    this.y = window.innerHeight * 0.2 + Math.random() * (window.innerHeight * 0.3);
+    
+    // Increase rotor speed during strafing
+    this.rotorSpeed = 15;
+    
+    // Create a particle burst effect
+    for (let i = 0; i < 20; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const distance = 20 + Math.random() * 30;
+      const speed = 1 + Math.random() * 2;
+      this.particleSystem.createEmber(
+        this.x + Math.cos(angle) * distance,
+        this.y + Math.sin(angle) * distance,
+        Math.cos(angle) * speed,
+        Math.sin(angle) * speed
+      );
+    }
+  }
+  
+  endStrafeRun() {
+    if (!this.strafing) return;
+    
+    console.log("🌋 World2 Helicopter ending strafe run");
+    this.strafing = false;
+    this.strafeCooldown = true;
+    this.strafeCooldownTimer = 0;
+    this.rotorSpeed = 8 + Math.random() * 4; // Reset rotor speed
+    
+    // Create a particle burst effect
+    for (let i = 0; i < 12; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const distance = 10 + Math.random() * 20;
+      this.particleSystem.createFlame(
+        this.x + Math.cos(angle) * distance,
+        this.y + Math.sin(angle) * distance
+      );
+    }
+  }
+  
+  updateStrafeMovement(deltaTime) {
+    // Update strafe timer
+    this.strafeTimer += deltaTime;
+    
+    // Move horizontally at high speed with zigzag pattern
+    this.x += this.strafeDirection * this.strafeSpeed * deltaTime;
+    
+    // World 2 special - zigzag movement
+    const zigzagOffset = Math.sin(this.strafeTimer * this.zigzagFrequency) * this.zigzagAmplitude;
+    this.y += zigzagOffset * deltaTime * 10;
+    
+    // World 2 special - drop fire bombs during strafe
+    if (this.dropsBombs && Math.random() < this.bombDropRate * deltaTime) {
+      this.dropFireBomb();
+    }
+    
+    // Emit a stream of particles behind the helicopter
+    if (Math.random() < 0.5) {
+      const offsetX = -this.strafeDirection * (10 + Math.random() * 30);
+      const offsetY = (Math.random() - 0.5) * 15;
+      
+      this.particleSystem.createFlame(
+        this.x + offsetX,
+        this.y + offsetY,
+        -this.strafeDirection * 1,
+        (Math.random() - 0.5) * 0.5
+      );
+      
+      if (Math.random() < 0.3) {
+        this.particleSystem.createEmber(
+          this.x + offsetX,
+          this.y + offsetY,
+          -this.strafeDirection * 2,
+          (Math.random() - 0.5)
+        );
+      }
+    }
+    
+    // End strafe if duration is over or helicopter is off-screen
+    if (this.strafeTimer >= this.strafeDuration ||
+        this.x < -100 || 
+        this.x > window.innerWidth + 100) {
+      this.endStrafeRun();
+    }
+  }
+  
+  // World 2 special - drop explosive fire bombs during strafing
+  dropFireBomb() {
+    const bombX = this.x;
+    const bombY = this.y + 20;
+    
+    // Create the bomb visual effect
+    for (let i = 0; i < 8; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const distance = 5 + Math.random() * 8;
+      this.particleSystem.createEmber(
+        bombX + Math.cos(angle) * distance,
+        bombY + Math.sin(angle) * distance,
+        Math.cos(angle) * 0.5,
+        Math.sin(angle) * 0.5 + 2 // Fall downward faster
+      );
+    }
+    
+    // Create an explosion after a delay
+    setTimeout(() => {
+      // Check if we're still active before creating explosion
+      if (this.particleSystem) {
+        // Create explosion effect
+        for (let i = 0; i < 30; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const distance = 10 + Math.random() * 20;
+          const speed = 2 + Math.random() * 3;
+          
+          this.particleSystem.createFlame(
+            bombX + Math.cos(angle) * 10,
+            bombY + 100 + Math.sin(angle) * 10,
+            Math.cos(angle) * speed,
+            Math.sin(angle) * speed
+          );
+          
+          if (i % 3 === 0) {
+            this.particleSystem.createEmber(
+              bombX + Math.cos(angle) * 5,
+              bombY + 100 + Math.sin(angle) * 5,
+              Math.cos(angle) * speed * 1.5,
+              Math.sin(angle) * speed * 1.5
+            );
+          }
+        }
+      }
+    }, 800 + Math.random() * 200);
   }
   
   draw(ctx) {
