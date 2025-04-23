@@ -74,6 +74,7 @@ export class Game {
     
     this.setupListeners();
     this.isRunning = false;
+    this.isPaused = false;
     
     // Screen shake effect properties
     this.screenShake = {
@@ -131,58 +132,72 @@ export class Game {
       }
       this.lastClickTime = currentTime;
       
-      // Handle game over screen restart button
+      // Handle game over screen buttons - delegate to UI if available
       if (!this.isRunning && this.gameState.gameOver) {
-        const containerWidth = Math.min(400, this.width * 0.8);
-        const containerHeight = 320;
-        const containerX = this.width / 2 - containerWidth / 2;
-        const containerY = this.height / 2 - containerHeight / 2;
-        
-        // Restart button dimensions
-        const buttonWidth = Math.min(200, containerWidth * 0.7);
-        const buttonHeight = 40;
-        const buttonX = this.width / 2 - buttonWidth / 2;
-        const buttonY = containerY + containerHeight - 70;
-        
-        // Exit to menu button dimensions
-        const menuButtonWidth = Math.min(180, containerWidth * 0.6);
-        const menuButtonHeight = 35;
-        const menuButtonX = this.width / 2 - menuButtonWidth / 2;
-        const menuButtonY = buttonY + buttonHeight + 15;
-        
-        // Check if click is on exit to menu button
-        if (mouseX >= menuButtonX && mouseX <= menuButtonX + menuButtonWidth &&
-            mouseY >= menuButtonY && mouseY <= menuButtonY + menuButtonHeight) {
-          // Exit to menu
-          this.exitToMenu();
+        if (this.ui && typeof this.ui.handleGameOverClick === 'function') {
+          // Let the UI handle the click event if the method exists
+          this.ui.handleGameOverClick(e);
           return;
+        } else {
+          // Legacy fallback for older code
+          const containerWidth = Math.min(400, this.width * 0.8);
+          const containerHeight = 320;
+          const containerX = this.width / 2 - containerWidth / 2;
+          const containerY = this.height / 2 - containerHeight / 2;
+          
+          // Restart button dimensions
+          const buttonWidth = Math.min(200, containerWidth * 0.7);
+          const buttonHeight = 40;
+          const buttonX = this.width / 2 - buttonWidth / 2;
+          const buttonY = containerY + containerHeight - 70;
+          
+          // Exit to menu button dimensions
+          const menuButtonWidth = Math.min(180, containerWidth * 0.6);
+          const menuButtonHeight = 35;
+          const menuButtonX = this.width / 2 - menuButtonWidth / 2;
+          const menuButtonY = buttonY + buttonHeight + 15;
+          
+          // Check if click is on exit to menu button
+          if (mouseX >= menuButtonX && mouseX <= menuButtonX + menuButtonWidth &&
+              mouseY >= menuButtonY && mouseY <= menuButtonY + menuButtonHeight) {
+            // Exit to menu
+            this.exitToMenu();
+            return;
+          }
+          
+          // Otherwise restart the game (default behavior)
+          this.restart();
         }
-        
-        // Otherwise restart the game (default behavior)
-        this.restart();
       }
       
       // Handle world complete screen buttons
-      if (!this.isRunning && this.gameState.worldComplete && this.ui.worldCompleteButtons) {
-        console.log('Checking world complete button clicks');
-        const { continue: continueBtn, exitToMenu } = this.ui.worldCompleteButtons;
-        
-        // Check if click is on exit to menu button
-        if (mouseX >= exitToMenu.x && mouseX <= exitToMenu.x + exitToMenu.width &&
-            mouseY >= exitToMenu.y && mouseY <= exitToMenu.y + exitToMenu.height) {
-          console.log('Exit to menu button clicked');
-          // Force full page reload instead of just returning to menu
-          window.location.reload();
+      if (!this.isRunning && this.gameState.worldComplete) {
+        if (this.ui && typeof this.ui.handleWorldCompleteClick === 'function') {
+          // Let the UI handle the click event if the method exists
+          this.ui.handleWorldCompleteClick(e);
           return;
-        }
-        
-        // Check if click is on continue button
-        if (mouseX >= continueBtn.x && mouseX <= continueBtn.x + continueBtn.width &&
-            mouseY >= continueBtn.y && mouseY <= continueBtn.y + continueBtn.height) {
-          console.log('Continue button clicked');
-          // Force full page reload to restart with the next world
-          window.location.reload();
-          return;
+        } else if (this.ui.worldCompleteButtons) {
+          // Legacy fallback for older code
+          console.log('Checking world complete button clicks');
+          const { continue: continueBtn, exitToMenu } = this.ui.worldCompleteButtons;
+          
+          // Check if click is on exit to menu button
+          if (mouseX >= exitToMenu.x && mouseX <= exitToMenu.x + exitToMenu.width &&
+              mouseY >= exitToMenu.y && mouseY <= exitToMenu.y + exitToMenu.height) {
+            console.log('Exit to menu button clicked');
+            // Force full page reload instead of just returning to menu
+            window.location.reload();
+            return;
+          }
+          
+          // Check if click is on continue button
+          if (mouseX >= continueBtn.x && mouseX <= continueBtn.x + continueBtn.width &&
+              mouseY >= continueBtn.y && mouseY <= continueBtn.y + continueBtn.height) {
+            console.log('Continue button clicked');
+            // Force full page reload to restart with the next world
+            window.location.reload();
+            return;
+          }
         }
       }
     });
@@ -218,7 +233,7 @@ export class Game {
     console.log('Starting game...');
     this.isRunning = true;
     this.isPaused = false;
-    this.gameState.paused = false;
+    this.gameState.paused = this.isPaused;
     
     console.log('Debug: Game state is', this.gameState);
     this.gameState.reset();
@@ -227,17 +242,14 @@ export class Game {
     this.resetLevel();
     
     // Clear any existing animation frame
-    if (this.animationFrame) {
-      cancelAnimationFrame(this.animationFrame);
-    }
-    if (this.animationFrameId) {
-      window.cancelAnimationFrame(this.animationFrameId);
+    if (this.requestAnimationFrameId) {
+      cancelAnimationFrame(this.requestAnimationFrameId);
+      this.requestAnimationFrameId = null;
     }
     
     // Set up the game loop
     this.lastFrameTime = null;
-    this.animationFrame = requestAnimationFrame((timestamp) => this.gameLoop(timestamp));
-    this.animationFrameId = this.animationFrame; // Keep both variables in sync
+    this.requestAnimationFrameId = requestAnimationFrame((timestamp) => this.gameLoop(timestamp));
     
     // Hide menu UI elements
     this.hideMenuUIElements();
@@ -301,52 +313,75 @@ export class Game {
   }
   
   restart() {
-    this.phoenix = new Phoenix(this.width / 2, this.height * 0.7, this.particleSystem);
+    console.log('Restarting game...');
+    
+    // Play button sound if available
+    if (this.soundManager) {
+      this.soundManager.playSound('button', 0.5);
+    }
+    
+    // Stop any sounds and reset game state
+    if (this.soundManager) {
+      this.soundManager.stopAllSounds();
+    }
+    
+    // Reset the game state (preserving level and XP)
+    this.gameState.reset(true); // true = preserve progress
+    
+    // Reset UI timers
+    if (this.ui) {
+      this.ui.gameOverStartTime = null;
+      this.ui.worldCompleteStartTime = null;
+    }
+    
+    // Reset phoenix
+    if (this.phoenix) {
+      this.phoenix.reset();
+    }
+    
+    // Clear arrays
     this.embers = [];
     this.hazards = [];
     this.enemies = [];
     
-    // Reset the game state
-    this.gameState.reset();
-    
-    // Explicitly force the level to 1 when restarting
-    this.gameState.level = 1;
-    
-    // Explicitly reset XP to 0 when restarting
-    this.gameState.xp = 0;
-    
-    // Make sure currentWorld is kept in sync
-    if (this.worldManager) {
-      this.gameState.currentWorld = this.worldManager.getCurrentWorldNumber();
+    // Reset particle system
+    if (this.particleSystem) {
+      this.particleSystem.clearAll();
     }
     
-    console.log('Game restarted: Level reset to', this.gameState.level, 'and XP reset to', this.gameState.xp);
+    // Clear any active UI messages
+    if (this.ui && this.ui.messages) {
+      this.ui.messages = [];
+    }
+    
+    // Reset timers
+    this.lastEmberTime = 0;
+    this.lastHazardTime = 0;
+    this.lastEnemyTime = 0;
+    
+    // Reset animation and game state
+    this.lastFrameTime = 0;
+    this.isPaused = false;
+    this.gameState.gameOver = false;
+    this.gameState.worldComplete = false;
+    
+    // Re-enable universal UI if it was disabled during world complete
+    window.universalUIEnabled = true;
+    
+    // Set the game as running again
     this.isRunning = true;
     
-    // Reset UI animation timers
-    this.ui.gameOverStartTime = null;
-    this.ui.worldCompleteStartTime = null;
-    
-    // Update phoenix reference in UI
-    this.ui.phoenix = this.phoenix;
-    
-    // Stop any existing sounds and restart gameplay sound
-    this.soundManager.stopGameplayLoop();
-    this.soundManager.playGameplayLoop();
-    
-    // Update the rank display when restarting - but do NOT reset the global rank system
-    if (window.rankSystem && document.querySelector('.rank-bar-container')) {
-      // Remove the existing rank bar if it exists
-      const existingRankBar = document.querySelector('.rank-bar-container');
-      if (existingRankBar) {
-        existingRankBar.remove();
-      }
-      
-      // Create a new rank bar with the latest rank data
-      if (this.container) {
-        window.rankSystem.renderRankBar(this.container);
-      }
+    // Restart the game loop if needed
+    if (!this.requestAnimationFrameId) {
+      this.requestAnimationFrameId = requestAnimationFrame(this.gameLoop.bind(this));
     }
+    
+    // Restart game music
+    if (this.soundManager && typeof this.soundManager.playGameplayLoop === 'function') {
+      this.soundManager.playGameplayLoop();
+    }
+    
+    console.log('Game restarted successfully');
   }
   
   // New method to exit to menu instead of restarting
@@ -357,25 +392,6 @@ export class Game {
   
   // Add exitToMainMenu method that's called from UI.js
   exitToMainMenu() {
-    console.log('Exiting to main menu');
-    // Stop any sounds
-    if (this.soundManager) {
-      this.soundManager.stopGameplayLoop();
-      this.soundManager.stopAll();
-    }
-    
-    // Reset game state
-    this.isRunning = false;
-    this.gameState.reset();
-    
-    // Show UI elements like rank bar that are hidden during gameplay
-    this.showMenuUIElements();
-    
-    // Hide pause button if visible
-    if (this.pauseButton) {
-      this.pauseButton.hide();
-    }
-    
     // Simply reload the page to return to initial state
     window.location.reload();
   }
@@ -471,8 +487,30 @@ export class Game {
   
   update(deltaTime) {
     // Don't update if the world is complete or game is over
-    if (this.gameState.worldComplete || this.gameState.gameOver) {
-      return;
+    if (this.gameState.worldComplete || this.gameState.gameOver) return;
+    
+    // Update game time
+    this.gameTime += deltaTime;
+    
+    // Safety check - prevent infinite loops
+    if (deltaTime <= 0) return;
+    
+    // Update the survival time counter
+    this.gameState.survivalTime += deltaTime;
+    
+    // Update phoenix, particles, and other game elements
+    this.phoenix.update(deltaTime);
+    this.particleSystem.update(deltaTime);
+    
+    // Only spawn embers if the game is actually running and not paused
+    if (this.isRunning && !this.isPaused && Date.now() - this.lastEmberTime > 300) {
+      // Spawn multiple embers at once (3-7)
+      const emberCount = Math.floor(Math.random() * 5) + 3; // 3-7 embers
+      for (let i = 0; i < emberCount; i++) {
+        this.spawnEmber();
+      }
+      this.lastEmberTime = Date.now();
+      console.log(`Spawned ${emberCount} embers. Total: ${this.embers.length}`);
     }
     
     // Check immediately if the phoenix has no health or game is over - don't continue updates
@@ -486,20 +524,6 @@ export class Game {
 
     // No auto-rise for phoenix, but track altitude by time
     this.gameState.altitude -= 60 * deltaTime;
-    
-    this.phoenix.update(deltaTime);
-    this.particleSystem.update(deltaTime);
-    
-    // Only spawn embers if the game is actually running and the player is in a world
-    if (this.isRunning && !this.gameState.paused && Date.now() - this.lastEmberTime > 300) {
-      // Spawn multiple embers at once (3-7)
-      const emberCount = Math.floor(Math.random() * 5) + 3; // 3-7 embers
-      for (let i = 0; i < emberCount; i++) {
-        this.spawnEmber();
-      }
-      this.lastEmberTime = Date.now();
-      console.log(`Spawned ${emberCount} embers. Total: ${this.embers.length}`);
-    }
     
     // Spawn hazards (flame helicopters) - less frequent but more challenging
     const hazardInterval = 4000 - Math.min(1500, this.gameState.survivalTime * 10);
@@ -892,8 +916,6 @@ export class Game {
       }
     }
     
-    this.gameState.survivalTime += deltaTime;
-    
     // Check world completion based on time
     if (this.gameState.survivalTime >= this.gameState.getTotalLevelTime()) {
       // Only mark as complete if not already marked
@@ -951,15 +973,9 @@ export class Game {
         this.render();
         
         // Cancel any pending animation frame to truly stop the game loop
-        if (this.animationFrameId) {
-          window.cancelAnimationFrame(this.animationFrameId);
-          this.animationFrameId = null;
-        }
-        
-        // Also check the alternative animation frame variable
-        if (this.animationFrame) {
-          cancelAnimationFrame(this.animationFrame);
-          this.animationFrame = null;
+        if (this.requestAnimationFrameId) {
+          cancelAnimationFrame(this.requestAnimationFrameId);
+          this.requestAnimationFrameId = null;
         }
       }
     }
@@ -974,23 +990,18 @@ export class Game {
       this.soundManager.stopGameplayLoop();
       this.soundManager.playGameOver();
       
-        // Add XP to the global rank system when game over
-        if (window.rankSystem) {
-          // Add XP based on survival time, level reached, and current XP
-          const rankXP = Math.floor(this.gameState.survivalTime * 2) + 
-                        (this.gameState.level * 10) + 
-                        Math.floor(this.gameState.xp / 5);
-          window.rankSystem.addXP(rankXP, false);
-          window.rankSystem.saveRankData(); // Explicitly save rank data
-        }
-      
-      // Call the game over callback if it exists
-      if (this.gameOverCallback) {
-        // Small delay to allow effects to play before showing menu
-        setTimeout(() => {
-          this.gameOverCallback();
-        }, 2000);
+      // Add XP to the global rank system when game over
+      if (window.rankSystem) {
+        // Add XP based on survival time, level reached, and current XP
+        const rankXP = Math.floor(this.gameState.survivalTime * 2) + 
+                      (this.gameState.level * 10) + 
+                      Math.floor(this.gameState.xp / 5);
+        window.rankSystem.addXP(rankXP, false);
+        window.rankSystem.saveRankData(); // Explicitly save rank data
       }
+      
+      // Don't automatically call the game over callback
+      // Removed to prevent automatic return to main menu
     }
   }
   
@@ -1200,8 +1211,8 @@ export class Game {
       this.worldManager.draw(this.ctx, this.width, this.height);
     }
     
-    // Only draw game objects if not in world complete state
-    if (!this.gameState.worldComplete) {
+    // Only draw game objects if not in world complete or game over state
+    if (!this.gameState.worldComplete && !this.gameState.gameOver) {
       // Draw hazards
       this.hazards.forEach(hazard => {
         if (hazard && typeof hazard.draw === 'function') {
@@ -1225,14 +1236,14 @@ export class Game {
       if (this.particleSystem && typeof this.particleSystem.draw === 'function') {
         this.particleSystem.draw(this.ctx);
       }
+      
+      // Draw embers - moved here to ensure they're drawn on top of everything else
+      this.embers.forEach(ember => {
+        if (ember && typeof ember.draw === 'function') {
+          ember.draw(this.ctx);
+        }
+      });
     }
-    
-    // Draw embers - moved here to ensure they're drawn on top of everything else
-    this.embers.forEach(ember => {
-      if (ember && typeof ember.draw === 'function') {
-        ember.draw(this.ctx);
-      }
-    });
     
     // Reset transform if screen shake was applied
     if (this.screenShake.active) {
@@ -1324,59 +1335,48 @@ export class Game {
   }
   
   gameLoop(timestamp) {
-    // Calculate delta time (time since last frame)
-    const now = timestamp;
-    if (!this.lastFrameTime) this.lastFrameTime = now;
-    let deltaTime = (now - this.lastFrameTime) / 1000; // Convert to seconds
-    
-    // Cap deltaTime to avoid huge jumps if browser tab was inactive
-    deltaTime = Math.min(deltaTime, 0.1);
-    this.lastFrameTime = now;
-    
-    // Ensure the game state is valid before proceeding
-    if (!this.gameState) {
-      console.warn('Game state is undefined in gameLoop');
-      this.animationFrame = requestAnimationFrame(this.gameLoop.bind(this));
-      this.animationFrameId = this.animationFrame; // Keep both variables in sync
+    // If this is the first frame, initialize lastFrameTime
+    if (!this.lastFrameTime) {
+      this.lastFrameTime = timestamp;
+      this.requestAnimationFrameId = requestAnimationFrame(this.gameLoop.bind(this));
       return;
     }
     
-    // Check for world completion or game over first
-    if (this.gameState.worldComplete || this.gameState.gameOver) {
-      // Render one final frame to show the completion screen
-      this.render();
-      
-      // Stop the game loop if complete and we have an animation frame
-      if (this.animationFrame) {
-        cancelAnimationFrame(this.animationFrame);
-        this.animationFrame = null;
-        this.animationFrameId = null;
-        console.log("Game loop stopped due to world completion or game over");
-      }
-      return;
+    // Calculate delta time in seconds (capped to prevent large jumps after tab switches)
+    let deltaTime = Math.min((timestamp - this.lastFrameTime) / 1000, 0.1);
+    this.lastFrameTime = timestamp;
+    
+    // Track FPS
+    this.frames++;
+    this.fpsTime += deltaTime;
+    if (this.fpsTime >= 1) {
+      this.fps = this.frames;
+      this.frames = 0;
+      this.fpsTime = 0;
     }
     
-    // Only update game logic if game is not paused
-    if (!this.gameState.paused) {
+    // Only update game logic if not paused and game is running
+    if (!this.isPaused && this.isRunning) {
+      // Update game state
       this.update(deltaTime);
-      
-      // Check if the world was completed during this update
-      if (this.gameState.worldComplete || this.gameState.gameOver) {
-        // Render one final frame with the completion state
-        this.render();
-        return;
-      }
     }
     
-    // Always render a frame
+    // Always render to show UI overlays (even when paused)
     this.render();
     
-    // Only request next frame if we're still rendering and not paused
-    // and not world complete
-    if (!this.gameState.paused && !this.gameState.worldComplete && !this.gameState.gameOver) {
-      this.animationFrame = requestAnimationFrame(this.gameLoop.bind(this));
-      this.animationFrameId = this.animationFrame; // Keep both variables in sync
+    // Determine if we should continue the game loop
+    if (this.gameState.gameOver || this.gameState.worldComplete) {
+      // The game is over or world is complete, stop requesting new frames
+      // The final frame with the game over/world complete UI will remain visible
+      console.log(`Game loop stopped due to ${this.gameState.gameOver ? 'game over' : 'world complete'}`);
+      cancelAnimationFrame(this.requestAnimationFrameId);
+      this.requestAnimationFrameId = null;
+    } else if (!this.isPaused) {
+      // Continue the game loop if the game is running normally
+      this.requestAnimationFrameId = requestAnimationFrame(this.gameLoop.bind(this));
     }
+    // If paused, we don't request a new frame, letting the current UI stay visible
+    // The game loop will resume when resumeGame() is called
   }
   
   // Set callback for game over event
@@ -1523,12 +1523,8 @@ export class Game {
         window.rankSystem.saveRankData(); // Explicitly save rank data
       }
       
-      // Call the game over callback if it exists after a short delay
-      if (this.gameOverCallback) {
-        setTimeout(() => {
-          this.gameOverCallback();
-        }, 2000);
-      }
+      // Don't automatically call the game over callback
+      // We'll let the player click on buttons instead
     }
   }
   
@@ -1622,5 +1618,51 @@ export class Game {
     }
     
     return null;
+  }
+
+  pauseGame() {
+    if (!this.isRunning) return;
+    
+    this.isPaused = true;
+    this.gameState.paused = true; // Keep synced for backwards compatibility
+    console.log('Game paused');
+    
+    // Stop sound effects but allow background music to continue
+    if (this.soundManager) {
+      this.soundManager.pauseGameSounds();
+    }
+    
+    // Show pause menu if available
+    if (this.pauseMenu && typeof this.pauseMenu.show === 'function') {
+      this.pauseMenu.show();
+    }
+    
+    // Continue rendering for pause menu, but don't update game state
+  }
+
+  resumeGame() {
+    if (!this.isRunning) return;
+    
+    this.isPaused = false;
+    this.gameState.paused = false; // Keep synced for backwards compatibility
+    console.log('Game resumed');
+    
+    // Resume any paused sounds
+    if (this.soundManager) {
+      this.soundManager.resumeGameSounds();
+    }
+    
+    // Hide pause menu if available
+    if (this.pauseMenu && typeof this.pauseMenu.hide === 'function') {
+      this.pauseMenu.hide();
+    }
+    
+    // Reset the last frame time to avoid a large delta time jump
+    this.lastFrameTime = performance.now();
+    
+    // Restart the animation frame if needed
+    if (!this.requestAnimationFrameId) {
+      this.requestAnimationFrameId = requestAnimationFrame(this.gameLoop.bind(this));
+    }
   }
 }

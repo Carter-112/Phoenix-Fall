@@ -1,4 +1,4 @@
-import { Ember } from 'ember';
+import { Ember } from '../../entities/ember.js';
 
 export class InfernalEmber extends Ember {
     constructor(x, y, value = 200) {

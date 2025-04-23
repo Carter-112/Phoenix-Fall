@@ -2,9 +2,14 @@
  * World 4 Configuration
  * A mystical void realm with gravity distortions and ethereal enemies
  */
+import { CelestialEmber } from './celestialEmber.js';
+
 export const world4 = {
     name: "Celestial Void",
     description: "A surreal journey through the boundary between dimensions",
+    
+    // World-specific Ember class
+    EmberClass: CelestialEmber,
     
     // World-specific settings
     settings: {

@@ -717,6 +717,46 @@ export class Phoenix {
     return this.health / this.maxHealth;
   }
   
+  /**
+   * Reset the phoenix to its initial state
+   * Called when restarting the game
+   */
+  reset() {
+    // Reset position - don't modify the initial values as we may want to retain the current screen size
+    // Just reset velocity and movement
+    this.velocityX = 0;
+    this.velocityY = 0;
+    
+    // Reset health
+    this.health = this.maxHealth;
+    
+    // Reset timers
+    this.invulnerableTime = 0;
+    this.damageFlashTimer = 0;
+    this.nearMissTimer = 0;
+    
+    // Reset animation state
+    this.damageShockwaveActive = false;
+    this.damageShockwaveRadius = 0;
+    this.nearMissIntensity = 0;
+    
+    // Reset trail
+    this.trailPoints = [];
+    
+    // Reset any physics modifiers
+    this.timeDilationFactor = 1.0;
+    this.gravityMultiplier = 1.0;
+    this.inGravityRift = false;
+    
+    // Re-initialize particles
+    this.initializeBodyParticles();
+    this.healingParticles = [];
+    
+    // Reset visual effects
+    this.glowIntensity = 1;
+    this.glowColor = null;
+  }
+  
   // Heal the phoenix
   heal(amount) {
     const previousHealth = this.health;

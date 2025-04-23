@@ -2,9 +2,14 @@
  * World 5 Configuration
  * The final infernal realm with extreme hazards and demonic enemies
  */
+import { InfernalEmber } from './infernalEmber.js';
+
 export const world5 = {
     name: "Infernal Core",
     description: "A perilous descent into the molten heart of creation itself",
+    
+    // World-specific Ember class
+    EmberClass: InfernalEmber,
     
     // World-specific settings
     settings: {

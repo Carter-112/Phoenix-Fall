@@ -368,18 +368,14 @@ export class UI {
       this.buttonPulseTime = (this.buttonPulseTime || 0) + 0.05;
       const pulseFactor = 1 + Math.sin(this.buttonPulseTime) * 0.08; // Pulse between 0.92 and 1.08 size
       
-      // Calculate button pulse effect for the menu button (slightly offset)
-      const menuButtonPulseTime = this.buttonPulseTime - 0.3; // Offset timing for visual interest
-      const menuPulseFactor = 1 + Math.sin(menuButtonPulseTime) * 0.06; // Slightly less pulse than restart
-      
       // Apply fade-in to buttons as well
       const buttonOpacity = Math.min(1, (timeSinceComplete - 400) / 600); // Start button fade slightly later
       
-      // Continue button (black with orange text)
+      // Continue button (black with orange text) - centered position
       const buttonWidth = Math.min(220, containerWidth * 0.8);
       const buttonHeight = 40;
       const buttonX = width / 2 - (buttonWidth * pulseFactor) / 2;
-      const buttonY = containerY + containerHeight - 90 - ((pulseFactor - 1) * buttonHeight) / 2; // Adjusted Y position for proper spacing
+      const buttonY = containerY + containerHeight - 70; // Adjusted to be centered
       
       // Button background with fade-in and pulse
       this.ctx.fillStyle = `rgba(0, 0, 0, ${buttonOpacity})`;
@@ -396,27 +392,6 @@ export class UI {
       this.ctx.font = '18px Arial';
       this.ctx.fillText('CONTINUE', width / 2, buttonY + 25 * pulseFactor);
       
-      // Exit to Menu button (smaller, positioned below continue button)
-      const menuButtonWidth = Math.min(180, containerWidth * 0.6);
-      const menuButtonHeight = 35;
-      const menuButtonX = width / 2 - (menuButtonWidth * menuPulseFactor) / 2;
-      const menuButtonY = buttonY + buttonHeight * pulseFactor + 20; // Position below continue button with slightly more spacing
-      
-      // Menu button background with fade-in and pulse
-      this.ctx.fillStyle = `rgba(40, 40, 40, ${buttonOpacity})`;
-      this.roundRect(menuButtonX, menuButtonY, menuButtonWidth * menuPulseFactor, menuButtonHeight * menuPulseFactor, 15, true);
-      
-      // Menu button border with glow effect
-      const menuGlowWidth = 1.5 + Math.sin(menuButtonPulseTime * 2) * 0.8;
-      this.ctx.strokeStyle = `rgba(255, 200, 100, ${buttonOpacity})`;
-      this.ctx.lineWidth = menuGlowWidth;
-      this.roundRect(menuButtonX, menuButtonY, menuButtonWidth * menuPulseFactor, menuButtonHeight * menuPulseFactor, 15, false, true);
-      
-      // Menu button text with fade-in
-      this.ctx.fillStyle = `rgba(255, 200, 100, ${buttonOpacity})`;
-      this.ctx.font = '16px Arial';
-      this.ctx.fillText('EXIT TO MENU', width / 2, menuButtonY + 23 * menuPulseFactor);
-      
       // Store world complete button hitboxes for click handling
       this.worldCompleteButtons = {
         continue: {
@@ -426,10 +401,10 @@ export class UI {
           height: buttonHeight * pulseFactor
         },
         exitToMenu: {
-          x: menuButtonX,
-          y: menuButtonY,
-          width: menuButtonWidth * menuPulseFactor,
-          height: menuButtonHeight * menuPulseFactor
+          x: buttonX,
+          y: buttonY + buttonHeight * pulseFactor + 15,
+          width: buttonWidth * pulseFactor * 0.8,
+          height: buttonHeight * pulseFactor * 0.8
         }
       };
     }
@@ -1019,31 +994,7 @@ export class UI {
       // Re-enable universal UI
       window.universalUIEnabled = true;
       
-      // Return to menu
-      if (window.gameInstance) {
-        window.gameInstance.exitToMainMenu();
-      }
-    }
-    
-    // Check if exit to menu button was clicked
-    if (this.worldCompleteButtons && 
-        this.worldCompleteButtons.exitToMenu &&
-        clickX >= this.worldCompleteButtons.exitToMenu.x && 
-        clickX <= this.worldCompleteButtons.exitToMenu.x + this.worldCompleteButtons.exitToMenu.width &&
-        clickY >= this.worldCompleteButtons.exitToMenu.y && 
-        clickY <= this.worldCompleteButtons.exitToMenu.y + this.worldCompleteButtons.exitToMenu.height) {
-      
-      console.log('Exit to menu button clicked on world complete screen');
-      
-      // Play button sound if available
-      if (this.audioSystem) {
-        this.audioSystem.playSound('button', 0.5);
-      }
-      
-      // Re-enable universal UI
-      window.universalUIEnabled = true;
-      
-      // Return to main menu
+      // Return to menu - using the continue button to go back to the main menu
       if (window.gameInstance) {
         window.gameInstance.exitToMainMenu();
       }

@@ -2,9 +2,14 @@
  * World 2 Configuration
  * A more challenging environment with volcanic hazards and aggressive enemies
  */
+import { Ember } from '../../entities/ember.js';
+
 export const world2 = {
     name: "Volcanic Ascent",
     description: "A treacherous climb through active volcanic passages",
+    
+    // World-specific Ember class
+    EmberClass: Ember,
     
     // World-specific settings
     settings: {

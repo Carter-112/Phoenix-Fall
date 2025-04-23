@@ -2,9 +2,14 @@
  * World 3 Configuration
  * A challenging frost-themed environment with ice hazards and crystalline enemies
  */
+import { FrostEmber } from './frostEmber.js';
+
 export const world3 = {
     name: "Frost Peak",
     description: "A treacherous ascent through crystalline spires and arctic winds",
+    
+    // World-specific Ember class
+    EmberClass: FrostEmber,
     
     // World-specific settings
     settings: {

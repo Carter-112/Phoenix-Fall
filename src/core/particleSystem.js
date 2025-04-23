@@ -74,6 +74,11 @@ export class ParticleSystem {
     }
   }
   
+  clearAll() {
+    // Clear all particles from the array
+    this.particles = [];
+  }
+  
   createRiftParticle(x, y, color) {
     const life = 0.3 + Math.random() * 0.6;
     const size = 3 + Math.random() * 5;

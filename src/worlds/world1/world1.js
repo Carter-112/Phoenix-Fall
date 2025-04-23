@@ -2,9 +2,14 @@
  * World 1 Configuration
  * The introductory world with basic challenges and enemy patterns
  */
+import { Ember } from '../../entities/ember.js';
+
 export const world1 = {
     name: "Ember Valley",
     description: "A tranquil valley filled with gentle ember streams",
+    
+    // World-specific Ember class
+    EmberClass: Ember,
     
     // World-specific settings
     settings: {
